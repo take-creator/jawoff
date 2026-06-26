@@ -1,0 +1,17 @@
+{
+  "name": "JawOff - 歯を離す",
+  "short_name": "JawOff",
+  "description": "食いしばり・歯列接触癖（TCH）改善のセルフケア支援アプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7fbfd",
+  "theme_color": "#16a6a0",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
