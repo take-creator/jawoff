@@ -103,13 +103,6 @@ struct TrendsScreen: View {
                         .datePickerStyle(.compact)
                     }
                 }
-
-                Button("アプリ開始日から今日まで") {
-                    startDate = appStartDate
-                    endDate = todayDate
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(TrendPalette.main)
             }
         }
     }
