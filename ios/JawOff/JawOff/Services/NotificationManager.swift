@@ -32,16 +32,19 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     }
 
     @MainActor
-    func scheduleHourlyReminder() async {
+    func scheduleReminder(frequency: ReminderFrequency) async {
         center.removePendingNotificationRequests(withIdentifiers: [hourlyReminderIdentifier])
 
         let content = UNMutableNotificationContent()
         content.title = "歯、触れていませんか？"
-        content.body = "アプリを開いて、今の噛み締め状態を確認しましょう。"
+        content.body = "唇は閉じる。歯は離す。舌は上顎。"
         content.sound = .default
         content.userInfo = ["screen": "check"]
 
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 60 * 60, repeats: true)
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: frequency.nextIntervalSeconds,
+            repeats: frequency.repeats
+        )
         let request = UNNotificationRequest(
             identifier: hourlyReminderIdentifier,
             content: content,
@@ -63,7 +66,11 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound]
+        guard notification.request.identifier == hourlyReminderIdentifier else {
+            return [.banner, .sound]
+        }
+        NotificationCenter.default.post(name: .jawOffReminderOpened, object: nil)
+        return [.banner, .sound]
     }
 
     nonisolated func userNotificationCenter(

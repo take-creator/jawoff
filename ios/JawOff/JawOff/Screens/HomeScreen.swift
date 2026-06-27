@@ -11,10 +11,12 @@ struct HomeScreen: View {
                     heroCard
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        MetricCard(title: "今日の通知", value: "\(store.todayReminderLogs.count)", caption: "表示記録")
+                        MetricCard(title: "今日のスコア", value: scoreText(store.todayAwarenessScore), caption: "Jaw Awareness")
                         MetricCard(title: "チェック", value: "\(store.todayChecks.count)", caption: "今日の回数")
-                        MetricCard(title: "顎の疲労", value: store.todayMorningLog.map { "\($0.jawFatigue)" } ?? "-", caption: "朝ログ")
-                        MetricCard(title: "最後の記録", value: lastCheckTime, caption: "チェック時刻")
+                        MetricCard(title: "触れていた", value: "\(store.todayTouchingCount)", caption: "気づけた回数")
+                        MetricCard(title: "離れていた", value: "\(store.todaySeparatedCount)", caption: "保てていた回数")
+                        MetricCard(title: "前日比", value: changeText(store.awarenessScoreChangeFromYesterday), caption: "昨日との差")
+                        MetricCard(title: "7日平均", value: scoreText(store.sevenDayAverageAwarenessScore), caption: "平均スコア")
                     }
 
                     if store.todayMorningLog == nil {
@@ -47,13 +49,13 @@ struct HomeScreen: View {
     private var heroCard: some View {
         AppCard {
             VStack(alignment: .leading, spacing: 14) {
-                Text("1時間ごとの小さな確認")
+                Text("小さな確認を積み重ねる")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.teal)
                 Text("唇は閉じる、歯は離す、舌は上顎")
                     .font(.title2.bold())
                     .foregroundStyle(.primary)
-                Text("通知が来たらアプリを開き、今の噛み締め状態を短く記録します。")
+                Text("通知が来たらワンタップで今の状態を記録します。触れていた時も、気づけたことが改善の一歩です。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Button("今チェックする") {
@@ -64,8 +66,14 @@ struct HomeScreen: View {
         }
     }
 
-    private var lastCheckTime: String {
-        guard let latest = store.todayChecks.last else { return "-" }
-        return latest.timestamp.formatted(date: .omitted, time: .shortened)
+    private func scoreText(_ score: Int?) -> String {
+        guard let score else { return "-" }
+        return "\(score)"
+    }
+
+    private func changeText(_ change: Int?) -> String {
+        guard let change else { return "-" }
+        if change > 0 { return "+\(change)" }
+        return "\(change)"
     }
 }

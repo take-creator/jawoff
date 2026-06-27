@@ -11,9 +11,9 @@ struct SettingsScreen: View {
                 VStack(spacing: 16) {
                     AppCard {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("1時間ごとの通知")
+                            Text("リマインダー")
                                 .font(.title2.bold())
-                            Text("通知文言は「歯、触れていませんか？」です。通知をタップしたらチェック画面を開いて記録します。")
+                            Text("通知文言は「歯、触れていませんか？」です。通知をタップしたら、今の歯の接触だけをすぐ記録できます。")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -34,21 +34,51 @@ struct SettingsScreen: View {
                                 .buttonStyle(SecondaryActionButtonStyle())
                             }
 
-                            Toggle("1時間ごとの通知を使う", isOn: notificationToggle)
+                            Toggle("通知を使う", isOn: notificationToggle)
                                 .font(.headline)
                                 .disabled(notifications.authorizationStatus != .authorized)
                         }
                     }
 
                     AppCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("通知間隔")
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("通知頻度")
                                 .font(.headline)
-                            Text("iPhone版MVPでは、目的に合わせて1時間固定にしています。")
+                            Text("30分ごとでも負担になりにくいよう、チェックはワンタップです。ランダム通知は毎回25〜55分の間で次の通知を決めます。")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                            Text("現在: \(store.settings.reminderIntervalMinutes)分ごと")
-                                .font(.subheadline.weight(.semibold))
+
+                            VStack(spacing: 8) {
+                                ForEach(ReminderFrequency.allCases) { frequency in
+                                    Button {
+                                        store.settings.reminderFrequency = frequency
+                                        if store.settings.notificationEnabled {
+                                            Task { await notifications.scheduleReminder(frequency: frequency) }
+                                        }
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(frequency.title)
+                                                    .font(.subheadline.weight(.semibold))
+                                                    .foregroundStyle(.primary)
+                                                Text(frequency.detail)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            Spacer()
+                                            if store.settings.reminderFrequency == frequency {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .font(.title3)
+                                                    .foregroundStyle(.teal)
+                                            }
+                                        }
+                                        .padding(12)
+                                        .background(frequencyBackground(frequency))
+                                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
                         }
                     }
 
@@ -72,7 +102,7 @@ struct SettingsScreen: View {
                 store.settings.notificationEnabled = enabled
                 Task {
                     if enabled {
-                        await notifications.scheduleHourlyReminder()
+                        await notifications.scheduleReminder(frequency: store.settings.reminderFrequency)
                     } else {
                         notifications.cancelReminder()
                     }
@@ -109,7 +139,11 @@ struct SettingsScreen: View {
         let granted = await notifications.requestAuthorization()
         store.settings.notificationEnabled = granted
         if granted {
-            await notifications.scheduleHourlyReminder()
+            await notifications.scheduleReminder(frequency: store.settings.reminderFrequency)
         }
+    }
+
+    private func frequencyBackground(_ frequency: ReminderFrequency) -> Color {
+        store.settings.reminderFrequency == frequency ? Color.teal.opacity(0.14) : Color(.secondarySystemGroupedBackground)
     }
 }

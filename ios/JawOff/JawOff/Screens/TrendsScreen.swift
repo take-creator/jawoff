@@ -16,7 +16,7 @@ struct TrendsScreen: View {
 
                     AppCard {
                         VStack(alignment: .leading, spacing: 14) {
-                            Text("症状スコア")
+                            Text("Jaw Awareness Score")
                                 .font(.headline)
                             ForEach(chartRows, id: \.dayKey) { row in
                                 TrendRow(row: row)
@@ -28,9 +28,12 @@ struct TrendsScreen: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("直近のチェック傾向")
                                 .font(.headline)
-                            Text("チェック回数: \(chartRows.reduce(0) { $0 + $1.checkCount })回")
+                            Text("チェック回数: \(totalChecks)回")
                                 .font(.title3.bold())
-                            Text("回数の多さよりも、気づいて力を抜けた回数として見ます。")
+                            Text("触れていた率: \(touchingRateText(totalTouchingRate))")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.teal)
+                            Text("触れていた時も、気づけた記録として前向きに見返します。")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -46,27 +49,37 @@ struct TrendsScreen: View {
 
     private var chartRows: [TrendDay] {
         Date.recentDays(days).map { date in
-            let morning = store.morningLogs.first { $0.date.dayKey == date.dayKey }
             let checks = store.checkLogs.filter { $0.timestamp.dayKey == date.dayKey }
+            let touching = checks.filter(\.teethTouching).count
             return TrendDay(
                 dayKey: date.dayKey,
                 label: date.formatted(.dateTime.month().day()),
-                jawFatigue: morning?.jawFatigue,
-                masseterTension: morning?.masseterTension,
-                toothFatigue: morning?.toothFatigue,
-                checkCount: checks.count
+                score: store.awarenessScore(on: date),
+                checkCount: checks.count,
+                touchingRate: store.touchingRate(on: date),
+                touchingCount: touching
             )
         }
+    }
+
+    private var totalChecks: Int {
+        chartRows.reduce(0) { $0 + $1.checkCount }
+    }
+
+    private var totalTouchingRate: Int? {
+        guard totalChecks > 0 else { return nil }
+        let touching = chartRows.reduce(0) { $0 + $1.touchingCount }
+        return Int((Double(touching) / Double(totalChecks) * 100).rounded())
     }
 }
 
 private struct TrendDay {
     var dayKey: String
     var label: String
-    var jawFatigue: Int?
-    var masseterTension: Int?
-    var toothFatigue: Int?
+    var score: Int?
     var checkCount: Int
+    var touchingRate: Int?
+    var touchingCount: Int
 }
 
 private struct TrendRow: View {
@@ -78,22 +91,28 @@ private struct TrendRow: View {
                 Text(row.label)
                     .font(.subheadline.weight(.semibold))
                 Spacer()
-                Text("チェック \(row.checkCount)")
+                Text("チェック \(row.checkCount)回")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.teal)
             }
 
-            TrendBar(label: "顎", value: row.jawFatigue, color: .teal)
-            TrendBar(label: "エラ", value: row.masseterTension, color: .blue)
-            TrendBar(label: "歯", value: row.toothFatigue, color: .orange)
+            TrendBar(label: "スコア", value: row.score.map { Double($0) / 100 }, display: scoreText(row.score), color: .teal)
+            TrendBar(label: "回数", value: min(Double(row.checkCount) / 12, 1), display: "\(row.checkCount)", color: .blue)
+            TrendBar(label: "触れ率", value: row.touchingRate.map { Double($0) / 100 }, display: touchingRateText(row.touchingRate), color: .orange)
         }
         .padding(.vertical, 8)
+    }
+
+    private func scoreText(_ score: Int?) -> String {
+        guard let score else { return "-" }
+        return "\(score)"
     }
 }
 
 private struct TrendBar: View {
     var label: String
-    var value: Int?
+    var value: Double?
+    var display: String
     var color: Color
 
     var body: some View {
@@ -106,13 +125,18 @@ private struct TrendBar: View {
                     Capsule().fill(Color(.systemGray5))
                     Capsule()
                         .fill(color)
-                        .frame(width: geometry.size.width * CGFloat(value ?? 0) / 10)
+                        .frame(width: geometry.size.width * CGFloat(max(0, min(value ?? 0, 1))))
                 }
             }
             .frame(height: 8)
-            Text(value.map(String.init) ?? "-")
+            Text(display)
                 .font(.caption.monospacedDigit())
-                .frame(width: 20, alignment: .trailing)
+                .frame(width: 44, alignment: .trailing)
         }
     }
+}
+
+private func touchingRateText(_ rate: Int?) -> String {
+    guard let rate else { return "-" }
+    return "\(rate)%"
 }

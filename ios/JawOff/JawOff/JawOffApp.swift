@@ -14,6 +14,11 @@ struct JawOffApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: .jawOffReminderOpened)) { _ in
                     selectedTab = .check
                     store.addReminderLog()
+                    if store.settings.notificationEnabled, store.settings.reminderFrequency == .random25to55 {
+                        Task {
+                            await notifications.scheduleReminder(frequency: store.settings.reminderFrequency)
+                        }
+                    }
                 }
                 .onOpenURL { _ in
                     selectedTab = .check
@@ -21,7 +26,7 @@ struct JawOffApp: App {
                 .task {
                     await notifications.refreshAuthorizationStatus()
                     if store.settings.notificationEnabled {
-                        await notifications.scheduleHourlyReminder()
+                        await notifications.scheduleReminder(frequency: store.settings.reminderFrequency)
                     }
                 }
         }

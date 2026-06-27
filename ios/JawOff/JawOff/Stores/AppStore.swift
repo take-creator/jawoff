@@ -37,6 +37,34 @@ final class AppStore: ObservableObject {
         reminderLogs.filter { $0.timestamp.dayKey == Date.todayKey }
     }
 
+    var todayTouchingCount: Int {
+        touchingCount(on: Date())
+    }
+
+    var todaySeparatedCount: Int {
+        separatedCount(on: Date())
+    }
+
+    var todayAwarenessScore: Int? {
+        awarenessScore(on: Date())
+    }
+
+    var yesterdayAwarenessScore: Int? {
+        guard let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) else { return nil }
+        return awarenessScore(on: yesterday)
+    }
+
+    var awarenessScoreChangeFromYesterday: Int? {
+        guard let todayAwarenessScore, let yesterdayAwarenessScore else { return nil }
+        return todayAwarenessScore - yesterdayAwarenessScore
+    }
+
+    var sevenDayAverageAwarenessScore: Int? {
+        let scores = Date.recentDays(7).compactMap { awarenessScore(on: $0) }
+        guard !scores.isEmpty else { return nil }
+        return Int((Double(scores.reduce(0, +)) / Double(scores.count)).rounded())
+    }
+
     func addCheckLog(_ log: CheckLog) {
         checkLogs.append(log)
     }
@@ -49,6 +77,32 @@ final class AppStore: ObservableObject {
 
     func addReminderLog() {
         reminderLogs.append(ReminderLog(id: UUID(), timestamp: Date()))
+    }
+
+    func checkLogs(on date: Date) -> [CheckLog] {
+        checkLogs.filter { $0.timestamp.dayKey == date.dayKey }
+    }
+
+    func touchingCount(on date: Date) -> Int {
+        checkLogs(on: date).filter(\.teethTouching).count
+    }
+
+    func separatedCount(on date: Date) -> Int {
+        checkLogs(on: date).filter { !$0.teethTouching }.count
+    }
+
+    func awarenessScore(on date: Date) -> Int? {
+        let logs = checkLogs(on: date)
+        guard !logs.isEmpty else { return nil }
+        let separated = logs.filter { !$0.teethTouching }.count
+        return Int((Double(separated) / Double(logs.count) * 100).rounded())
+    }
+
+    func touchingRate(on date: Date) -> Int? {
+        let logs = checkLogs(on: date)
+        guard !logs.isEmpty else { return nil }
+        let touching = logs.filter(\.teethTouching).count
+        return Int((Double(touching) / Double(logs.count) * 100).rounded())
     }
 
     private func save<T: Encodable>(_ value: T, key: String) {
