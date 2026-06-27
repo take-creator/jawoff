@@ -60,6 +60,7 @@ struct MorningLogScreen: View {
                     }
                 }
                 .padding()
+                .padding(.bottom, 104)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("朝ログ")

@@ -35,10 +35,12 @@ struct HomeScreen: View {
 
                     DisclaimerView()
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 120)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("歯を離す")
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 

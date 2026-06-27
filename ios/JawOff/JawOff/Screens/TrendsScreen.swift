@@ -37,6 +37,7 @@ struct TrendsScreen: View {
                     }
                 }
                 .padding()
+                .padding(.bottom, 104)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("推移")

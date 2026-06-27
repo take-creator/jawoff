@@ -49,6 +49,7 @@ struct LearnScreen: View {
                     DisclaimerView()
                 }
                 .padding()
+                .padding(.bottom, 104)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("学習")
