@@ -9,7 +9,7 @@ struct RootView: View {
                 .tabItem { Label("ホーム", systemImage: "house") }
                 .tag(AppTab.home)
 
-            CheckScreen()
+            CheckScreen(selectedTab: $selectedTab)
                 .tabItem { Label("チェック", systemImage: "checkmark.circle") }
                 .tag(AppTab.check)
 

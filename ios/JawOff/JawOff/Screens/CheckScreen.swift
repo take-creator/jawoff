@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CheckScreen: View {
     @EnvironmentObject private var store: AppStore
+    @Binding var selectedTab: AppTab
     @State private var result: QuickCheckResult?
 
     var body: some View {
@@ -71,9 +72,10 @@ struct CheckScreen: View {
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
 
-            Button("もう一度チェックする") {
+            Button("ホームに戻る") {
                 withAnimation(.easeInOut) {
                     self.result = nil
+                    selectedTab = .home
                 }
             }
             .buttonStyle(PrimaryActionButtonStyle())
