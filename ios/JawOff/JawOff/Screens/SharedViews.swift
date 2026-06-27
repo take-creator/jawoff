@@ -59,6 +59,9 @@ struct ToggleRow: View {
 
 struct ScoreSlider: View {
     var title: String
+    var subtitle: String?
+    var leftLabel = "なし"
+    var rightLabel = "強い"
     @Binding var value: Double
 
     var body: some View {
@@ -72,12 +75,17 @@ struct ScoreSlider: View {
                         .font(.headline.monospacedDigit())
                         .foregroundStyle(.teal)
                 }
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
                 Slider(value: $value, in: 0...10, step: 1)
                     .tint(.teal)
                 HStack {
-                    Text("なし")
+                    Text(leftLabel)
                     Spacer()
-                    Text("強い")
+                    Text(rightLabel)
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

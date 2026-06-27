@@ -175,8 +175,7 @@ struct TrendsScreen: View {
                 }
 
                 HStack(spacing: 14) {
-                    LegendItem(title: "朝のつらさ", color: TrendPalette.touching)
-                    LegendItem(title: "睡眠の質", color: TrendPalette.separated)
+                    LegendItem(title: "起床時の噛み締め感", color: TrendPalette.touching)
                 }
 
                 MorningLogBarChart(buckets: morningBuckets)
@@ -198,18 +197,13 @@ struct TrendsScreen: View {
         morningRecordedBuckets.count
     }
 
-    private var averageMorningSymptom: Int {
-        averageScore(morningRecordedBuckets.map(\.symptomAverage))
-    }
-
-    private var averageSleepQuality: Int {
-        averageScore(morningRecordedBuckets.map(\.sleepQuality))
+    private var averageMorningClenchingLevel: Int {
+        averageScore(morningRecordedBuckets.map(\.morningClenchingLevel))
     }
 
     private var morningSummaryRow: some View {
         HStack(spacing: 14) {
-            MorningSummaryPill(title: "朝のつらさ", score: averageMorningSymptom, color: TrendPalette.touching)
-            MorningSummaryPill(title: "睡眠の質", score: averageSleepQuality, color: TrendPalette.separated)
+            MorningSummaryPill(title: "起床時の噛み締め感", score: averageMorningClenchingLevel, color: TrendPalette.touching)
         }
     }
 
@@ -332,14 +326,8 @@ private struct MorningTrendBucket: Identifiable {
         log != nil
     }
 
-    var symptomAverage: Int {
-        guard let log else { return 0 }
-        let total = log.jawFatigue + log.masseterTension + log.toothFatigue + log.headache + log.shoulderStiffness
-        return Int((Double(total) / 5.0).rounded())
-    }
-
-    var sleepQuality: Int {
-        log?.sleepQuality ?? 0
+    var morningClenchingLevel: Int {
+        log?.morningClenchingLevel ?? 0
     }
 }
 
@@ -442,10 +430,7 @@ private struct MorningLogBarChart: View {
             HStack(alignment: .bottom, spacing: buckets.count > 30 ? 8 : 12) {
                 ForEach(buckets) { bucket in
                     VStack(spacing: 8) {
-                        HStack(alignment: .bottom, spacing: 4) {
-                            scoreBar(value: bucket.symptomAverage, color: TrendPalette.touching, hasRecord: bucket.hasRecord)
-                            scoreBar(value: bucket.sleepQuality, color: TrendPalette.separated, hasRecord: bucket.hasRecord)
-                        }
+                        scoreBar(value: bucket.morningClenchingLevel, color: TrendPalette.touching, hasRecord: bucket.hasRecord)
                         .frame(height: 150, alignment: .bottom)
 
                         Text(bucket.label)
@@ -456,7 +441,7 @@ private struct MorningLogBarChart: View {
                             .frame(width: 42, height: 18)
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(bucket.label)、朝のつらさ \(bucket.symptomAverage)、睡眠の質 \(bucket.sleepQuality)")
+                    .accessibilityLabel("\(bucket.label)、起床時の噛み締め感 \(bucket.morningClenchingLevel)")
                 }
             }
             .padding(.top, 8)

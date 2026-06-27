@@ -21,7 +21,7 @@ struct HomeScreen: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("朝の症状ログが未記録です")
                                     .font(.headline)
-                                Text("顎のだるさや睡眠の質を残すと、変化を見返しやすくなります。")
+                                Text("起床時の噛み締め感を残すと、変化を見返しやすくなります。")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                 Button("朝ログをつける") {

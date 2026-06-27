@@ -13,13 +13,38 @@ struct CheckLog: Identifiable, Codable, Equatable {
 struct MorningLog: Identifiable, Codable, Equatable {
     var id: UUID
     var date: Date
-    var jawFatigue: Int
-    var masseterTension: Int
-    var toothFatigue: Int
-    var headache: Int
-    var shoulderStiffness: Int
-    var sleepQuality: Int
-    var memo: String
+    var morningClenchingLevel: Int
+
+    init(id: UUID, date: Date, morningClenchingLevel: Int) {
+        self.id = id
+        self.date = date
+        self.morningClenchingLevel = morningClenchingLevel
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        date = try container.decode(Date.self, forKey: .date)
+        if let level = try container.decodeIfPresent(Int.self, forKey: .morningClenchingLevel) {
+            morningClenchingLevel = level
+        } else {
+            morningClenchingLevel = try container.decodeIfPresent(Int.self, forKey: .jawFatigue) ?? 5
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(date, forKey: .date)
+        try container.encode(morningClenchingLevel, forKey: .morningClenchingLevel)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case date
+        case morningClenchingLevel
+        case jawFatigue
+    }
 }
 
 struct AppSettings: Codable, Equatable {
