@@ -2,7 +2,9 @@ import SwiftUI
 
 struct TrendsScreen: View {
     @EnvironmentObject private var store: AppStore
-    @State private var period: TrendPeriod = .oneMonth
+    @State private var startDate = Calendar.current.startOfDay(for: Date())
+    @State private var endDate = Calendar.current.startOfDay(for: Date())
+    @State private var didSetInitialRange = false
 
     var body: some View {
         NavigationStack {
@@ -16,7 +18,7 @@ struct TrendsScreen: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("記録の推移")
                                         .font(.title3.bold())
-                                    Text(period.bucketLabel)
+                                    Text("日ごとの記録")
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(.secondary)
                                 }
@@ -48,36 +50,72 @@ struct TrendsScreen: View {
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("推移")
-        }
-    }
-
-    private var periodSelector: some View {
-        AppCard {
-            HStack {
-                Text("期間")
-                    .font(.headline)
-                Spacer()
-                Menu {
-                    ForEach(TrendPeriod.allCases) { item in
-                        Button(item.title) {
-                            period = item
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(period.title)
-                            .font(.headline)
-                        Image(systemName: "chevron.down")
-                            .font(.caption.weight(.bold))
-                    }
-                    .foregroundStyle(TrendPalette.main)
+            .onAppear {
+                setInitialRangeIfNeeded()
+            }
+            .onChange(of: startDate) { _, newValue in
+                if newValue > endDate {
+                    endDate = newValue
+                }
+            }
+            .onChange(of: endDate) { _, newValue in
+                if newValue < startDate {
+                    startDate = newValue
                 }
             }
         }
     }
 
+    private var periodSelector: some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("期間")
+                    .font(.headline)
+
+                VStack(spacing: 10) {
+                    HStack {
+                        Text("開始")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        DatePicker(
+                            "開始",
+                            selection: $startDate,
+                            in: appStartDate...endDate,
+                            displayedComponents: .date
+                        )
+                        .labelsHidden()
+                        .datePickerStyle(.compact)
+                    }
+
+                    HStack {
+                        Text("終了")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        DatePicker(
+                            "終了",
+                            selection: $endDate,
+                            in: startDate...todayDate,
+                            displayedComponents: .date
+                        )
+                        .labelsHidden()
+                        .datePickerStyle(.compact)
+                    }
+                }
+
+                Button("アプリ開始日から今日まで") {
+                    startDate = appStartDate
+                    endDate = todayDate
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(TrendPalette.main)
+            }
+        }
+    }
+
     private var chartBuckets: [TrendBucket] {
-        period.makeBuckets(from: store.checkLogs)
+        makeDailyBuckets(from: startDate, through: endDate, logs: store.checkLogs)
     }
 
     private var totalSeparated: Int {
@@ -103,78 +141,52 @@ struct TrendsScreen: View {
             SummaryPill(title: "触れていた", count: totalTouching, percent: 100 - separatedPercent, color: TrendPalette.touching)
         }
     }
-}
 
-private enum TrendPeriod: String, CaseIterable, Identifiable {
-    case oneMonth
-    case sixMonths
-    case oneYear
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .oneMonth:
-            return "1ヶ月"
-        case .sixMonths:
-            return "半年"
-        case .oneYear:
-            return "1年"
-        }
+    private var appStartDate: Date {
+        let calendar = Calendar.current
+        let firstCheck = store.checkLogs.map(\.timestamp).min()
+        return calendar.startOfDay(for: firstCheck ?? Date())
     }
 
-    var bucketLabel: String {
-        switch self {
-        case .oneMonth:
-            return "日ごとの記録"
-        case .sixMonths, .oneYear:
-            return "週ごとの記録"
-        }
+    private var todayDate: Date {
+        Calendar.current.startOfDay(for: Date())
     }
 
-    func makeBuckets(from logs: [CheckLog]) -> [TrendBucket] {
-        switch self {
-        case .oneMonth:
-            return makeDailyBuckets(days: 30, logs: logs)
-        case .sixMonths:
-            return makeWeeklyBuckets(weeks: 26, logs: logs)
-        case .oneYear:
-            return makeWeeklyBuckets(weeks: 52, logs: logs)
-        }
+    private func setInitialRangeIfNeeded() {
+        guard !didSetInitialRange else { return }
+        startDate = appStartDate
+        endDate = todayDate
+        didSetInitialRange = true
     }
 
-    private func makeDailyBuckets(days: Int, logs: [CheckLog]) -> [TrendBucket] {
-        Date.recentDays(days).map { date in
+    private func makeDailyBuckets(from start: Date, through end: Date, logs: [CheckLog]) -> [TrendBucket] {
+        let calendar = Calendar.current
+        let normalizedStart = calendar.startOfDay(for: min(start, end))
+        let normalizedEnd = calendar.startOfDay(for: max(start, end))
+        let dayCount = calendar.dateComponents([.day], from: normalizedStart, to: normalizedEnd).day ?? 0
+
+        return (0...dayCount).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: normalizedStart) else {
+                return nil
+            }
             let dayLogs = logs.filter { $0.timestamp.dayKey == date.dayKey }
             let touching = dayLogs.filter(\.teethTouching).count
             return TrendBucket(
                 id: date.dayKey,
-                label: date.formatted(.dateTime.month().day()),
+                label: Self.shortDateFormatter.string(from: date),
                 separatedCount: dayLogs.count - touching,
                 touchingCount: touching
             )
         }
     }
 
-    private func makeWeeklyBuckets(weeks: Int, logs: [CheckLog]) -> [TrendBucket] {
-        let calendar = Calendar.current
-        let startOfThisWeek = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? calendar.startOfDay(for: Date())
-
-        return (0..<weeks).compactMap { offset in
-            guard let start = calendar.date(byAdding: .weekOfYear, value: offset - weeks + 1, to: startOfThisWeek),
-                  let end = calendar.date(byAdding: .weekOfYear, value: 1, to: start) else {
-                return nil
-            }
-            let weekLogs = logs.filter { $0.timestamp >= start && $0.timestamp < end }
-            let touching = weekLogs.filter(\.teethTouching).count
-            return TrendBucket(
-                id: start.dayKey,
-                label: start.formatted(.dateTime.month().day()),
-                separatedCount: weekLogs.count - touching,
-                touchingCount: touching
-            )
-        }
-    }
+    private static let shortDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "M/d"
+        return formatter
+    }()
 }
 
 private struct TrendBucket: Identifiable {
@@ -230,8 +242,9 @@ private struct StackedBarChart: View {
                         Text(bucket.label)
                             .font(.caption2)
                             .foregroundStyle(bucket.hasRecord ? .secondary : Color.secondary.opacity(0.45))
-                            .rotationEffect(.degrees(-45))
-                            .frame(width: 34, height: 26)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .frame(width: 42, height: 18)
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(bucket.label)、離れていた \(bucket.separatedCount)回、触れていた \(bucket.touchingCount)回")
