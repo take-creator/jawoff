@@ -11,14 +11,18 @@ struct TrendsScreen: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    periodSelector
                     recordKindTabs
+                    if selectedRecordKind.usesPeriod {
+                        periodSelector
+                    }
 
                     switch selectedRecordKind {
                     case .checks:
                         checkRecordsCard
                     case .morning:
                         morningRecordsCard
+                    case .photo:
+                        monthlyPhotoGuideCard
                     }
                 }
                 .padding()
@@ -190,6 +194,39 @@ struct TrendsScreen: View {
         }
     }
 
+    private var monthlyPhotoGuideCard: some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("月1写真記録ガイド")
+                        .font(.title3.bold())
+                    Text("画像保存はMVPでは未実装です。毎月同じ条件で撮るためのガイドです。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text("同じ照明・同じ距離・無表情で撮影します。")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(TrendPalette.main)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(TrendPalette.main.opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach(["正面", "右45度", "左45度", "横顔"], id: \.self) { pose in
+                        Text(pose)
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(.secondarySystemGroupedBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                }
+            }
+        }
+    }
+
     private var morningRecordedBuckets: [MorningTrendBucket] {
         morningBuckets.filter(\.hasRecord)
     }
@@ -317,6 +354,7 @@ struct TrendsScreen: View {
 private enum RecordKind: String, CaseIterable, Identifiable {
     case checks
     case morning
+    case photo
 
     var id: String { rawValue }
 
@@ -326,7 +364,13 @@ private enum RecordKind: String, CaseIterable, Identifiable {
             return "歯の記録"
         case .morning:
             return "朝ログ"
+        case .photo:
+            return "写真"
         }
+    }
+
+    var usesPeriod: Bool {
+        self != .photo
     }
 }
 

@@ -26,26 +26,6 @@ struct LearnScreen: View {
                         }
                     }
 
-                    AppCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("月1写真記録ガイド")
-                                .font(.headline)
-                            Text("画像保存はMVPでは未実装です。同じ照明・同じ距離・無表情で、正面・左右45度・横顔を撮影します。")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                                ForEach(["正面", "右45度", "左45度", "横顔"], id: \.self) { pose in
-                                    Text(pose)
-                                        .font(.subheadline.weight(.semibold))
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                        .background(Color(.secondarySystemGroupedBackground))
-                                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                                }
-                            }
-                        }
-                    }
-
                     DisclaimerView()
                 }
                 .padding()
