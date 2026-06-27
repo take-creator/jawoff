@@ -17,6 +17,7 @@ struct CheckScreen: View {
 
                 if let savedAt {
                     savedView(savedAt: savedAt)
+                    Spacer(minLength: 24)
                 } else {
                     Text("\(currentStep + 1) / 7")
                         .font(.subheadline.weight(.semibold))
