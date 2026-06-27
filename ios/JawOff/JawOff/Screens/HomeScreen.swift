@@ -76,22 +76,24 @@ private struct HomeCountCard: View {
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+                .padding(.horizontal, 4)
+                .background(Color.teal)
 
             Text(value)
                 .font(.system(size: 42, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .monospacedDigit()
 
             Text(caption)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.86))
+                .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.78)
         }
         .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
         .padding()
-        .background(Color.teal)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.teal.opacity(0.24), radius: 14, x: 0, y: 8)
+        .shadow(color: Color.black.opacity(0.04), radius: 14, x: 0, y: 8)
     }
 }
