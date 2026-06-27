@@ -20,6 +20,22 @@ npm run dev
 - 設定: 30分、1時間、2時間のリマインダー間隔とブラウザ通知許可
 - 学習: TCH改善に関する短いカードと月1写真記録ガイド
 
+## iPhoneアプリ版
+
+SwiftUI版のiPhone MVPを `ios/JawOff` に追加しています。
+
+- 1時間ごとのローカル通知
+- 通知文言: `歯、触れていませんか？`
+- 通知タップでチェック画面へ移動
+- チェックログ、朝ログ、設定を端末内保存
+
+起動方法:
+
+1. `ios/JawOff/JawOff.xcodeproj` をXcodeで開く
+2. `JawOff` schemeを選ぶ
+3. 実機またはiPhone SimulatorでRunする
+4. 実機通知を使う場合は、XcodeのSigning & Capabilitiesで自分のTeamを選ぶ
+
 ## データ保存
 
 データはブラウザの localStorage に保存します。
