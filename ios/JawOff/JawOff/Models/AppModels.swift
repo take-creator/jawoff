@@ -53,19 +53,30 @@ struct MorningLog: Identifiable, Codable, Equatable {
 struct AppSettings: Codable, Equatable {
     var reminderFrequency: ReminderFrequency
     var notificationEnabled: Bool
+    var reminderStartMinutes: Int
+    var reminderEndMinutes: Int
 
     static let `default` = AppSettings(
         reminderFrequency: .minutes30,
-        notificationEnabled: false
+        notificationEnabled: false,
+        reminderStartMinutes: 8 * 60,
+        reminderEndMinutes: 22 * 60
     )
 
     var reminderIntervalMinutes: Int {
         reminderFrequency.displayMinutes
     }
 
-    init(reminderFrequency: ReminderFrequency, notificationEnabled: Bool) {
+    init(
+        reminderFrequency: ReminderFrequency,
+        notificationEnabled: Bool,
+        reminderStartMinutes: Int = 8 * 60,
+        reminderEndMinutes: Int = 22 * 60
+    ) {
         self.reminderFrequency = reminderFrequency
         self.notificationEnabled = notificationEnabled
+        self.reminderStartMinutes = reminderStartMinutes
+        self.reminderEndMinutes = reminderEndMinutes
     }
 
     init(from decoder: Decoder) throws {
@@ -77,18 +88,24 @@ struct AppSettings: Codable, Equatable {
             let oldMinutes = try container.decodeIfPresent(Int.self, forKey: .reminderIntervalMinutes) ?? 30
             reminderFrequency = ReminderFrequency.fixed(minutes: oldMinutes) ?? .minutes30
         }
+        reminderStartMinutes = try container.decodeIfPresent(Int.self, forKey: .reminderStartMinutes) ?? 8 * 60
+        reminderEndMinutes = try container.decodeIfPresent(Int.self, forKey: .reminderEndMinutes) ?? 22 * 60
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(reminderFrequency, forKey: .reminderFrequency)
         try container.encode(notificationEnabled, forKey: .notificationEnabled)
+        try container.encode(reminderStartMinutes, forKey: .reminderStartMinutes)
+        try container.encode(reminderEndMinutes, forKey: .reminderEndMinutes)
     }
 
     private enum CodingKeys: String, CodingKey {
         case reminderFrequency
         case reminderIntervalMinutes
         case notificationEnabled
+        case reminderStartMinutes
+        case reminderEndMinutes
     }
 }
 
@@ -152,10 +169,6 @@ enum ReminderFrequency: String, CaseIterable, Codable, Identifiable, Equatable {
         default:
             return TimeInterval(displayMinutes * 60)
         }
-    }
-
-    var repeats: Bool {
-        self != .random25to55
     }
 
     static func fixed(minutes: Int) -> ReminderFrequency? {

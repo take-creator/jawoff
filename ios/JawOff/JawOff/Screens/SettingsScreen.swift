@@ -44,7 +44,7 @@ struct SettingsScreen: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("通知頻度")
                                 .font(.headline)
-                            Text("30分ごとでも負担になりにくいよう、チェックはワンタップです。ランダム通知は毎回25〜55分の間で次の通知を決めます。")
+                            Text("指定した時間帯の中だけ通知します。ランダム通知は毎回25〜55分の間で次の通知を決めます。")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
 
@@ -52,9 +52,7 @@ struct SettingsScreen: View {
                                 ForEach(ReminderFrequency.allCases) { frequency in
                                     Button {
                                         store.settings.reminderFrequency = frequency
-                                        if store.settings.notificationEnabled {
-                                            Task { await notifications.scheduleReminder(frequency: frequency) }
-                                        }
+                                        scheduleIfNeeded()
                                     } label: {
                                         HStack(spacing: 12) {
                                             VStack(alignment: .leading, spacing: 3) {
@@ -82,6 +80,46 @@ struct SettingsScreen: View {
                         }
                     }
 
+                    AppCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("通知する時間帯")
+                                .font(.headline)
+                            Text("この時間帯の外では通知しません。夜間に通知を鳴らしたくない場合は、朝から夜までの範囲にしてください。")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+
+                            VStack(spacing: 10) {
+                                HStack {
+                                    Text("開始")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    DatePicker(
+                                        "開始",
+                                        selection: reminderStartBinding,
+                                        displayedComponents: .hourAndMinute
+                                    )
+                                    .labelsHidden()
+                                    .datePickerStyle(.compact)
+                                }
+
+                                HStack {
+                                    Text("終了")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    DatePicker(
+                                        "終了",
+                                        selection: reminderEndBinding,
+                                        displayedComponents: .hourAndMinute
+                                    )
+                                    .labelsHidden()
+                                    .datePickerStyle(.compact)
+                                }
+                            }
+                        }
+                    }
+
                     DisclaimerView()
                 }
                 .padding()
@@ -102,11 +140,31 @@ struct SettingsScreen: View {
                 store.settings.notificationEnabled = enabled
                 Task {
                     if enabled {
-                        await notifications.scheduleReminder(frequency: store.settings.reminderFrequency)
+                        await notifications.scheduleReminder(settings: store.settings)
                     } else {
                         notifications.cancelReminder()
                     }
                 }
+            }
+        )
+    }
+
+    private var reminderStartBinding: Binding<Date> {
+        Binding(
+            get: { dateFromMinutes(store.settings.reminderStartMinutes) },
+            set: { date in
+                store.settings.reminderStartMinutes = minutesFromDate(date)
+                scheduleIfNeeded()
+            }
+        )
+    }
+
+    private var reminderEndBinding: Binding<Date> {
+        Binding(
+            get: { dateFromMinutes(store.settings.reminderEndMinutes) },
+            set: { date in
+                store.settings.reminderEndMinutes = minutesFromDate(date)
+                scheduleIfNeeded()
             }
         )
     }
@@ -139,8 +197,23 @@ struct SettingsScreen: View {
         let granted = await notifications.requestAuthorization()
         store.settings.notificationEnabled = granted
         if granted {
-            await notifications.scheduleReminder(frequency: store.settings.reminderFrequency)
+            await notifications.scheduleReminder(settings: store.settings)
         }
+    }
+
+    private func scheduleIfNeeded() {
+        guard store.settings.notificationEnabled else { return }
+        Task { await notifications.scheduleReminder(settings: store.settings) }
+    }
+
+    private func minutesFromDate(_ date: Date) -> Int {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (components.hour ?? 0) * 60 + (components.minute ?? 0)
+    }
+
+    private func dateFromMinutes(_ minutes: Int) -> Date {
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        return Calendar.current.date(byAdding: .minute, value: minutes, to: startOfDay) ?? Date()
     }
 
     private func frequencyBackground(_ frequency: ReminderFrequency) -> Color {

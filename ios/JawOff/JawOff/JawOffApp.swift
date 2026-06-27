@@ -16,9 +16,9 @@ struct JawOffApp: App {
                     selectedTab = .home
                     isCheckPresented = true
                     store.addReminderLog()
-                    if store.settings.notificationEnabled, store.settings.reminderFrequency == .random25to55 {
+                    if store.settings.notificationEnabled {
                         Task {
-                            await notifications.scheduleReminder(frequency: store.settings.reminderFrequency)
+                            await notifications.scheduleReminder(settings: store.settings)
                         }
                     }
                 }
@@ -29,7 +29,7 @@ struct JawOffApp: App {
                 .task {
                     await notifications.refreshAuthorizationStatus()
                     if store.settings.notificationEnabled {
-                        await notifications.scheduleReminder(frequency: store.settings.reminderFrequency)
+                        await notifications.scheduleReminder(settings: store.settings)
                     }
                 }
         }
