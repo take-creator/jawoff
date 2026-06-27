@@ -47,7 +47,7 @@ struct HomeScreen: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("小さな確認を積み重ねる")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.teal)
+                    .foregroundStyle(HomePalette.main)
                 Text("唇は閉じる、歯は離す、舌は上顎")
                     .font(.title2.bold())
                     .foregroundStyle(.primary)
@@ -57,7 +57,7 @@ struct HomeScreen: View {
                 Button("今チェックする") {
                     selectedTab = .check
                 }
-                .buttonStyle(PrimaryActionButtonStyle())
+                .buttonStyle(HomePrimaryButtonStyle())
             }
         }
     }
@@ -96,14 +96,14 @@ private struct TodayBalanceCard: View {
                     title: "離れていた",
                     count: separatedCount,
                     ratio: separatedRatio,
-                    color: .green
+                    color: HomePalette.separated
                 )
 
                 ProgressBarRow(
                     title: "触れていた",
                     count: touchingCount,
                     ratio: touchingRatio,
-                    color: .red
+                    color: HomePalette.touching
                 )
             }
         }
@@ -134,18 +134,20 @@ private struct ProgressBarRow: View {
                         .frame(width: 11, height: 11)
                     Text(title)
                         .font(.title3.bold())
+                        .foregroundStyle(.primary)
                 }
 
                 Spacer()
 
                 Text(percentText)
                     .font(.title3.bold().monospacedDigit())
+                    .foregroundStyle(color)
             }
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color(.systemGray5))
+                        .fill(HomePalette.progressBackground)
                     Capsule()
                         .fill(color)
                         .frame(width: geometry.size.width * CGFloat(ratio))
@@ -157,5 +159,25 @@ private struct ProgressBarRow: View {
                 .font(.headline.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+private enum HomePalette {
+    static let main = Color(red: 24 / 255, green: 195 / 255, blue: 207 / 255)
+    static let separated = Color(red: 45 / 255, green: 190 / 255, blue: 127 / 255)
+    static let touching = Color(red: 244 / 255, green: 162 / 255, blue: 97 / 255)
+    static let progressBackground = Color(red: 232 / 255, green: 234 / 255, blue: 240 / 255)
+}
+
+private struct HomePrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(HomePalette.main)
+            .foregroundStyle(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
     }
 }
