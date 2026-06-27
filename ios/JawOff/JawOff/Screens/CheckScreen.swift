@@ -37,12 +37,13 @@ struct CheckScreen: View {
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(4)
                         }
+
+                        stepControls
+                            .padding(.top, 12)
                     }
                     .padding(.horizontal, 24)
 
                     Spacer(minLength: 24)
-
-                    bottomControls
                 }
             }
             .padding(.horizontal, 24)
@@ -54,7 +55,7 @@ struct CheckScreen: View {
     }
 
     @ViewBuilder
-    private var bottomControls: some View {
+    private var stepControls: some View {
         if currentStep == 0 {
             Button("チェックを始める") {
                 withAnimation(.easeInOut) {
@@ -124,7 +125,7 @@ struct CheckScreen: View {
         case 6:
             return "ここまでの回答を現在時刻で保存します。"
         default:
-            return "あてはまる方を選んでください。"
+            return nil
         }
     }
 
