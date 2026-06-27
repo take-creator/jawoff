@@ -64,10 +64,9 @@ struct CheckScreen: View {
                 .multilineTextAlignment(.center)
 
             VStack(spacing: 10) {
-                Text("深呼吸3回")
-                Text("奥歯を離す")
-                Text("舌を上顎につける")
-                Text("肩と顎の力を抜く")
+                ForEach(result.messages, id: \.self) { message in
+                    Text(message)
+                }
             }
             .font(.body)
             .foregroundStyle(.secondary)
@@ -108,5 +107,21 @@ private struct QuickCheckResult: Equatable {
 
     var title: String {
         teethTouching ? "気づけました" : "離せていました"
+    }
+
+    var messages: [String] {
+        if teethTouching {
+            return [
+                "深呼吸3回",
+                "奥歯を離す",
+                "舌を上顎につける",
+                "肩と顎の力を抜く"
+            ]
+        }
+
+        return [
+            "その調子です。",
+            "引き続き、歯を離せている感覚を大切にしましょう。"
+        ]
     }
 }
