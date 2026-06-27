@@ -11,12 +11,8 @@ struct HomeScreen: View {
                     heroCard
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        MetricCard(title: "今日のスコア", value: scoreText(store.todayAwarenessScore), caption: "Jaw Awareness")
-                        MetricCard(title: "チェック", value: "\(store.todayChecks.count)", caption: "今日の回数")
-                        MetricCard(title: "触れていた", value: "\(store.todayTouchingCount)", caption: "気づけた回数")
-                        MetricCard(title: "離れていた", value: "\(store.todaySeparatedCount)", caption: "保てていた回数")
-                        MetricCard(title: "前日比", value: changeText(store.awarenessScoreChangeFromYesterday), caption: "昨日との差")
-                        MetricCard(title: "7日平均", value: scoreText(store.sevenDayAverageAwarenessScore), caption: "平均スコア")
+                        MetricCard(title: "触れていた", value: "\(store.todayTouchingCount)", caption: "食いしばりに気づけた回数")
+                        MetricCard(title: "離れていた", value: "\(store.todaySeparatedCount)", caption: "歯を離せていた回数")
                     }
 
                     if store.todayMorningLog == nil {
@@ -55,7 +51,7 @@ struct HomeScreen: View {
                 Text("唇は閉じる、歯は離す、舌は上顎")
                     .font(.title2.bold())
                     .foregroundStyle(.primary)
-                Text("通知が来たらワンタップで今の状態を記録します。触れていた時も、気づけたことが改善の一歩です。")
+                Text("通知が来たら、今の歯の状態をワンタップで記録します。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Button("今チェックする") {
@@ -66,14 +62,4 @@ struct HomeScreen: View {
         }
     }
 
-    private func scoreText(_ score: Int?) -> String {
-        guard let score else { return "-" }
-        return "\(score)"
-    }
-
-    private func changeText(_ change: Int?) -> String {
-        guard let change else { return "-" }
-        if change > 0 { return "+\(change)" }
-        return "\(change)"
-    }
 }
