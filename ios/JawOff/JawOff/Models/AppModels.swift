@@ -13,22 +13,24 @@ struct CheckLog: Identifiable, Codable, Equatable {
 struct MorningLog: Identifiable, Codable, Equatable {
     var id: UUID
     var date: Date
-    var morningClenchingLevel: Int
+    var morningClenchingDetected: Bool
 
-    init(id: UUID, date: Date, morningClenchingLevel: Int) {
+    init(id: UUID, date: Date, morningClenchingDetected: Bool) {
         self.id = id
         self.date = date
-        self.morningClenchingLevel = morningClenchingLevel
+        self.morningClenchingDetected = morningClenchingDetected
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         date = try container.decode(Date.self, forKey: .date)
-        if let level = try container.decodeIfPresent(Int.self, forKey: .morningClenchingLevel) {
-            morningClenchingLevel = level
+        if let detected = try container.decodeIfPresent(Bool.self, forKey: .morningClenchingDetected) {
+            morningClenchingDetected = detected
+        } else if let level = try container.decodeIfPresent(Int.self, forKey: .morningClenchingLevel) {
+            morningClenchingDetected = level > 0
         } else {
-            morningClenchingLevel = try container.decodeIfPresent(Int.self, forKey: .jawFatigue) ?? 5
+            morningClenchingDetected = (try container.decodeIfPresent(Int.self, forKey: .jawFatigue) ?? 0) > 0
         }
     }
 
@@ -36,12 +38,13 @@ struct MorningLog: Identifiable, Codable, Equatable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(date, forKey: .date)
-        try container.encode(morningClenchingLevel, forKey: .morningClenchingLevel)
+        try container.encode(morningClenchingDetected, forKey: .morningClenchingDetected)
     }
 
     private enum CodingKeys: String, CodingKey {
         case id
         case date
+        case morningClenchingDetected
         case morningClenchingLevel
         case jawFatigue
     }

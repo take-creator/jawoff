@@ -164,7 +164,7 @@ struct TrendsScreen: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("朝ログの記録")
                             .font(.title3.bold())
-                        Text("0〜10の変化")
+                        Text("起床時の噛み締め感")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -175,10 +175,11 @@ struct TrendsScreen: View {
                 }
 
                 HStack(spacing: 14) {
-                    LegendItem(title: "起床時の噛み締め感", color: TrendPalette.touching)
+                    LegendItem(title: "はい", color: TrendPalette.touching)
+                    LegendItem(title: "いいえ", color: TrendPalette.separated)
                 }
 
-                MorningLogBarChart(buckets: morningBuckets)
+                MorningDetectionHistory(buckets: morningBuckets)
 
                 if morningRecordedCount == 0 {
                     emptyText("この期間の朝ログはまだありません")
@@ -197,13 +198,33 @@ struct TrendsScreen: View {
         morningRecordedBuckets.count
     }
 
-    private var averageMorningClenchingLevel: Int {
-        averageScore(morningRecordedBuckets.map(\.morningClenchingLevel))
+    private var weeklyMorningCounts: MorningDetectionCounts {
+        morningCounts(in: .weekOfYear)
+    }
+
+    private var monthlyMorningCounts: MorningDetectionCounts {
+        morningCounts(in: .month)
+    }
+
+    private var monthlyNoRate: Int {
+        guard monthlyMorningCounts.total > 0 else { return 0 }
+        return Int((Double(monthlyMorningCounts.noCount) / Double(monthlyMorningCounts.total) * 100).rounded())
     }
 
     private var morningSummaryRow: some View {
-        HStack(spacing: 14) {
-            MorningSummaryPill(title: "起床時の噛み締め感", score: averageMorningClenchingLevel, color: TrendPalette.touching)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                MorningCountPill(title: "今週", counts: weeklyMorningCounts)
+                MorningCountPill(title: "今月", counts: monthlyMorningCounts)
+            }
+
+            Text("今月は\(monthlyNoRate)%の日で朝の噛み締め感がありませんでした")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(TrendPalette.main)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(TrendPalette.main.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }
 
@@ -266,9 +287,16 @@ struct TrendsScreen: View {
         }
     }
 
-    private func averageScore(_ scores: [Int]) -> Int {
-        guard !scores.isEmpty else { return 0 }
-        return Int((Double(scores.reduce(0, +)) / Double(scores.count)).rounded())
+    private func morningCounts(in component: Calendar.Component) -> MorningDetectionCounts {
+        let calendar = Calendar.current
+        guard let interval = calendar.dateInterval(of: component, for: Date()) else {
+            return MorningDetectionCounts(yesCount: 0, noCount: 0)
+        }
+        let logs = store.morningLogs.filter { interval.contains($0.date) }
+        return MorningDetectionCounts(
+            yesCount: logs.filter(\.morningClenchingDetected).count,
+            noCount: logs.filter { !$0.morningClenchingDetected }.count
+        )
     }
 
     private func emptyText(_ text: String) -> some View {
@@ -326,8 +354,17 @@ private struct MorningTrendBucket: Identifiable {
         log != nil
     }
 
-    var morningClenchingLevel: Int {
-        log?.morningClenchingLevel ?? 0
+    var morningClenchingDetected: Bool? {
+        log?.morningClenchingDetected
+    }
+}
+
+private struct MorningDetectionCounts {
+    var yesCount: Int
+    var noCount: Int
+
+    var total: Int {
+        yesCount + noCount
     }
 }
 
@@ -418,20 +455,25 @@ private struct SummaryPill: View {
     }
 }
 
-private struct MorningLogBarChart: View {
+private struct MorningDetectionHistory: View {
     var buckets: [MorningTrendBucket]
-
-    private var barWidth: CGFloat {
-        buckets.count > 30 ? 9 : 14
-    }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .bottom, spacing: buckets.count > 30 ? 8 : 12) {
+            HStack(alignment: .top, spacing: buckets.count > 30 ? 8 : 12) {
                 ForEach(buckets) { bucket in
-                    VStack(spacing: 8) {
-                        scoreBar(value: bucket.morningClenchingLevel, color: TrendPalette.touching, hasRecord: bucket.hasRecord)
-                        .frame(height: 150, alignment: .bottom)
+                    VStack(spacing: 8) { 
+                        Circle()
+                            .fill(circleColor(for: bucket))
+                            .frame(width: buckets.count > 30 ? 16 : 22, height: buckets.count > 30 ? 16 : 22)
+                            .overlay {
+                                Circle()
+                                    .stroke(TrendPalette.progressBackground, lineWidth: bucket.hasRecord ? 0 : 1)
+                            }
+
+                        Text(statusText(for: bucket))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(bucket.hasRecord ? .secondary : Color.secondary.opacity(0.45))
 
                         Text(bucket.label)
                             .font(.caption2)
@@ -441,7 +483,7 @@ private struct MorningLogBarChart: View {
                             .frame(width: 42, height: 18)
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(bucket.label)、起床時の噛み締め感 \(bucket.morningClenchingLevel)")
+                    .accessibilityLabel("\(bucket.label)、\(statusText(for: bucket))")
                 }
             }
             .padding(.top, 8)
@@ -449,46 +491,48 @@ private struct MorningLogBarChart: View {
         }
     }
 
-    private func scoreBar(value: Int, color: Color, hasRecord: Bool) -> some View {
-        ZStack(alignment: .bottom) {
-            Capsule()
-                .fill(TrendPalette.progressBackground)
-                .frame(width: barWidth, height: 150)
+    private func circleColor(for bucket: MorningTrendBucket) -> Color {
+        switch bucket.morningClenchingDetected {
+        case true:
+            return TrendPalette.touching
+        case false:
+            return TrendPalette.separated
+        case nil:
+            return TrendPalette.progressBackground
+        }
+    }
 
-            if hasRecord {
-                Capsule()
-                    .fill(color)
-                    .frame(width: barWidth, height: max(4, 150 * CGFloat(value) / 10))
-            }
+    private func statusText(for bucket: MorningTrendBucket) -> String {
+        switch bucket.morningClenchingDetected {
+        case true:
+            return "はい"
+        case false:
+            return "いいえ"
+        case nil:
+            return "未記録"
         }
     }
 }
 
-private struct MorningSummaryPill: View {
+private struct MorningCountPill: View {
     var title: String
-    var score: Int
-    var color: Color
+    var counts: MorningDetectionCounts
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(color)
-                    .frame(width: 9, height: 9)
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            Text("\(score)")
-                .font(.title3.bold().monospacedDigit())
-                .foregroundStyle(color)
-            Text("平均 / 10")
-                .font(.caption.weight(.semibold).monospacedDigit())
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
+            Text("はい \(counts.yesCount)日")
+                .font(.subheadline.bold().monospacedDigit())
+                .foregroundStyle(TrendPalette.touching)
+            Text("いいえ \(counts.noCount)日")
+                .font(.subheadline.bold().monospacedDigit())
+                .foregroundStyle(TrendPalette.separated)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(color.opacity(0.10))
+        .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }

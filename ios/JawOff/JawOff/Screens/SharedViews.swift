@@ -57,43 +57,6 @@ struct ToggleRow: View {
     }
 }
 
-struct ScoreSlider: View {
-    var title: String
-    var subtitle: String?
-    var leftLabel = "なし"
-    var rightLabel = "強い"
-    @Binding var value: Double
-
-    var body: some View {
-        AppCard {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text(title)
-                        .font(.headline)
-                    Spacer()
-                    Text("\(Int(value))")
-                        .font(.headline.monospacedDigit())
-                        .foregroundStyle(.teal)
-                }
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Slider(value: $value, in: 0...10, step: 1)
-                    .tint(.teal)
-                HStack {
-                    Text(leftLabel)
-                    Spacer()
-                    Text(rightLabel)
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-        }
-    }
-}
-
 struct DisclaimerView: View {
     var body: some View {
         Text("このアプリはセルフケア支援を目的としたもので、診断・治療を行うものではありません。痛み、顎関節症状、歯の違和感が強い場合は歯科医師に相談してください。")
