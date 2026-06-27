@@ -5,44 +5,20 @@ struct TrendsScreen: View {
     @State private var startDate = Calendar.current.startOfDay(for: Date())
     @State private var endDate = Calendar.current.startOfDay(for: Date())
     @State private var didSetInitialRange = false
+    @State private var selectedRecordKind: RecordKind = .checks
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
                     periodSelector
+                    recordKindTabs
 
-                    AppCard {
-                        VStack(alignment: .leading, spacing: 18) {
-                            HStack(alignment: .firstTextBaseline) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("日別の記録")
-                                        .font(.title3.bold())
-                                    Text("日ごとの記録")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text("合計 \(totalCount)回")
-                                    .font(.caption.weight(.semibold).monospacedDigit())
-                                    .foregroundStyle(TrendPalette.main)
-                            }
-
-                            HStack(spacing: 14) {
-                                LegendItem(title: "離れていた", color: TrendPalette.separated)
-                                LegendItem(title: "触れていた", color: TrendPalette.touching)
-                            }
-
-                            StackedBarChart(buckets: chartBuckets)
-
-                            if totalCount == 0 {
-                                Text("この期間の記録はまだありません")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                summaryRow
-                            }
-                        }
+                    switch selectedRecordKind {
+                    case .checks:
+                        checkRecordsCard
+                    case .morning:
+                        morningRecordsCard
                     }
                 }
                 .padding()
@@ -64,6 +40,15 @@ struct TrendsScreen: View {
                 }
             }
         }
+    }
+
+    private var recordKindTabs: some View {
+        Picker("記録の種類", selection: $selectedRecordKind) {
+            ForEach(RecordKind.allCases) { kind in
+                Text(kind.title).tag(kind)
+            }
+        }
+        .pickerStyle(.segmented)
     }
 
     private var periodSelector: some View {
@@ -111,6 +96,10 @@ struct TrendsScreen: View {
         makeDailyBuckets(from: startDate, through: endDate, logs: store.checkLogs)
     }
 
+    private var morningBuckets: [MorningTrendBucket] {
+        makeDailyMorningBuckets(from: startDate, through: endDate, logs: store.morningLogs)
+    }
+
     private var totalSeparated: Int {
         chartBuckets.reduce(0) { $0 + $1.separatedCount }
     }
@@ -135,10 +124,101 @@ struct TrendsScreen: View {
         }
     }
 
+    private var checkRecordsCard: some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("日別の記録")
+                            .font(.title3.bold())
+                        Text("歯の状態")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text("合計 \(totalCount)回")
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(TrendPalette.main)
+                }
+
+                HStack(spacing: 14) {
+                    LegendItem(title: "離れていた", color: TrendPalette.separated)
+                    LegendItem(title: "触れていた", color: TrendPalette.touching)
+                }
+
+                StackedBarChart(buckets: chartBuckets)
+
+                if totalCount == 0 {
+                    emptyText("この期間の記録はまだありません")
+                } else {
+                    summaryRow
+                }
+            }
+        }
+    }
+
+    private var morningRecordsCard: some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("朝ログの記録")
+                            .font(.title3.bold())
+                        Text("0〜10の変化")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text("合計 \(morningRecordedCount)日")
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(TrendPalette.main)
+                }
+
+                HStack(spacing: 14) {
+                    LegendItem(title: "朝のつらさ", color: TrendPalette.touching)
+                    LegendItem(title: "睡眠の質", color: TrendPalette.separated)
+                }
+
+                MorningLogBarChart(buckets: morningBuckets)
+
+                if morningRecordedCount == 0 {
+                    emptyText("この期間の朝ログはまだありません")
+                } else {
+                    morningSummaryRow
+                }
+            }
+        }
+    }
+
+    private var morningRecordedBuckets: [MorningTrendBucket] {
+        morningBuckets.filter(\.hasRecord)
+    }
+
+    private var morningRecordedCount: Int {
+        morningRecordedBuckets.count
+    }
+
+    private var averageMorningSymptom: Int {
+        averageScore(morningRecordedBuckets.map(\.symptomAverage))
+    }
+
+    private var averageSleepQuality: Int {
+        averageScore(morningRecordedBuckets.map(\.sleepQuality))
+    }
+
+    private var morningSummaryRow: some View {
+        HStack(spacing: 14) {
+            MorningSummaryPill(title: "朝のつらさ", score: averageMorningSymptom, color: TrendPalette.touching)
+            MorningSummaryPill(title: "睡眠の質", score: averageSleepQuality, color: TrendPalette.separated)
+        }
+    }
+
     private var appStartDate: Date {
         let calendar = Calendar.current
         let firstCheck = store.checkLogs.map(\.timestamp).min()
-        return calendar.startOfDay(for: firstCheck ?? Date())
+        let firstMorning = store.morningLogs.map(\.date).min()
+        let firstRecord = [firstCheck, firstMorning].compactMap { $0 }.min()
+        return calendar.startOfDay(for: firstRecord ?? Date())
     }
 
     private var todayDate: Date {
@@ -173,6 +253,36 @@ struct TrendsScreen: View {
         }
     }
 
+    private func makeDailyMorningBuckets(from start: Date, through end: Date, logs: [MorningLog]) -> [MorningTrendBucket] {
+        let calendar = Calendar.current
+        let normalizedStart = calendar.startOfDay(for: min(start, end))
+        let normalizedEnd = calendar.startOfDay(for: max(start, end))
+        let dayCount = calendar.dateComponents([.day], from: normalizedStart, to: normalizedEnd).day ?? 0
+
+        return (0...dayCount).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: normalizedStart) else {
+                return nil
+            }
+            let log = logs.first { $0.date.dayKey == date.dayKey }
+            return MorningTrendBucket(
+                id: date.dayKey,
+                label: Self.shortDateFormatter.string(from: date),
+                log: log
+            )
+        }
+    }
+
+    private func averageScore(_ scores: [Int]) -> Int {
+        guard !scores.isEmpty else { return 0 }
+        return Int((Double(scores.reduce(0, +)) / Double(scores.count)).rounded())
+    }
+
+    private func emptyText(_ text: String) -> some View {
+        Text(text)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+    }
+
     private static let shortDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
@@ -180,6 +290,22 @@ struct TrendsScreen: View {
         formatter.dateFormat = "M/d"
         return formatter
     }()
+}
+
+private enum RecordKind: String, CaseIterable, Identifiable {
+    case checks
+    case morning
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .checks:
+            return "歯の記録"
+        case .morning:
+            return "朝ログ"
+        }
+    }
 }
 
 private struct TrendBucket: Identifiable {
@@ -194,6 +320,26 @@ private struct TrendBucket: Identifiable {
 
     var hasRecord: Bool {
         totalCount > 0
+    }
+}
+
+private struct MorningTrendBucket: Identifiable {
+    var id: String
+    var label: String
+    var log: MorningLog?
+
+    var hasRecord: Bool {
+        log != nil
+    }
+
+    var symptomAverage: Int {
+        guard let log else { return 0 }
+        let total = log.jawFatigue + log.masseterTension + log.toothFatigue + log.headache + log.shoulderStiffness
+        return Int((Double(total) / 5.0).rounded())
+    }
+
+    var sleepQuality: Int {
+        log?.sleepQuality ?? 0
     }
 }
 
@@ -274,6 +420,84 @@ private struct SummaryPill: View {
                 .font(.title3.bold().monospacedDigit())
                 .foregroundStyle(color)
             Text("\(count)回")
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(color.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct MorningLogBarChart: View {
+    var buckets: [MorningTrendBucket]
+
+    private var barWidth: CGFloat {
+        buckets.count > 30 ? 9 : 14
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .bottom, spacing: buckets.count > 30 ? 8 : 12) {
+                ForEach(buckets) { bucket in
+                    VStack(spacing: 8) {
+                        HStack(alignment: .bottom, spacing: 4) {
+                            scoreBar(value: bucket.symptomAverage, color: TrendPalette.touching, hasRecord: bucket.hasRecord)
+                            scoreBar(value: bucket.sleepQuality, color: TrendPalette.separated, hasRecord: bucket.hasRecord)
+                        }
+                        .frame(height: 150, alignment: .bottom)
+
+                        Text(bucket.label)
+                            .font(.caption2)
+                            .foregroundStyle(bucket.hasRecord ? .secondary : Color.secondary.opacity(0.45))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .frame(width: 42, height: 18)
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(bucket.label)、朝のつらさ \(bucket.symptomAverage)、睡眠の質 \(bucket.sleepQuality)")
+                }
+            }
+            .padding(.top, 8)
+            .padding(.horizontal, 2)
+        }
+    }
+
+    private func scoreBar(value: Int, color: Color, hasRecord: Bool) -> some View {
+        ZStack(alignment: .bottom) {
+            Capsule()
+                .fill(TrendPalette.progressBackground)
+                .frame(width: barWidth, height: 150)
+
+            if hasRecord {
+                Capsule()
+                    .fill(color)
+                    .frame(width: barWidth, height: max(4, 150 * CGFloat(value) / 10))
+            }
+        }
+    }
+}
+
+private struct MorningSummaryPill: View {
+    var title: String
+    var score: Int
+    var color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 9, height: 9)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            Text("\(score)")
+                .font(.title3.bold().monospacedDigit())
+                .foregroundStyle(color)
+            Text("平均 / 10")
                 .font(.caption.weight(.semibold).monospacedDigit())
                 .foregroundStyle(.secondary)
         }
