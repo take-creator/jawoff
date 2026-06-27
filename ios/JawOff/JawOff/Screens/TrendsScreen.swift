@@ -2,30 +2,43 @@ import SwiftUI
 
 struct TrendsScreen: View {
     @EnvironmentObject private var store: AppStore
-    @State private var days = 7
+    @State private var period: TrendPeriod = .oneMonth
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    Picker("期間", selection: $days) {
-                        Text("7日").tag(7)
-                        Text("30日").tag(30)
-                    }
-                    .pickerStyle(.segmented)
+                    periodSelector
 
                     AppCard {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("日別の記録")
-                                .font(.title3.bold())
+                        VStack(alignment: .leading, spacing: 18) {
+                            HStack(alignment: .firstTextBaseline) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("記録の推移")
+                                        .font(.title3.bold())
+                                    Text(period.bucketLabel)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text("合計 \(totalCount)回")
+                                    .font(.caption.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(TrendPalette.main)
+                            }
 
                             HStack(spacing: 14) {
                                 LegendItem(title: "離れていた", color: TrendPalette.separated)
                                 LegendItem(title: "触れていた", color: TrendPalette.touching)
                             }
 
-                            ForEach(chartRows, id: \.dayKey) { row in
-                                DailyStackedBarRow(row: row)
+                            StackedBarChart(buckets: chartBuckets)
+
+                            if totalCount == 0 {
+                                Text("この期間の記録はまだありません")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                summaryRow
                             }
                         }
                     }
@@ -38,94 +51,230 @@ struct TrendsScreen: View {
         }
     }
 
-    private var chartRows: [TrendDay] {
+    private var periodSelector: some View {
+        AppCard {
+            HStack {
+                Text("期間")
+                    .font(.headline)
+                Spacer()
+                Menu {
+                    ForEach(TrendPeriod.allCases) { item in
+                        Button(item.title) {
+                            period = item
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(period.title)
+                            .font(.headline)
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.bold))
+                    }
+                    .foregroundStyle(TrendPalette.main)
+                }
+            }
+        }
+    }
+
+    private var chartBuckets: [TrendBucket] {
+        period.makeBuckets(from: store.checkLogs)
+    }
+
+    private var totalSeparated: Int {
+        chartBuckets.reduce(0) { $0 + $1.separatedCount }
+    }
+
+    private var totalTouching: Int {
+        chartBuckets.reduce(0) { $0 + $1.touchingCount }
+    }
+
+    private var totalCount: Int {
+        totalSeparated + totalTouching
+    }
+
+    private var separatedPercent: Int {
+        guard totalCount > 0 else { return 0 }
+        return Int((Double(totalSeparated) / Double(totalCount) * 100).rounded())
+    }
+
+    private var summaryRow: some View {
+        HStack(spacing: 14) {
+            SummaryPill(title: "離れていた", count: totalSeparated, percent: separatedPercent, color: TrendPalette.separated)
+            SummaryPill(title: "触れていた", count: totalTouching, percent: 100 - separatedPercent, color: TrendPalette.touching)
+        }
+    }
+}
+
+private enum TrendPeriod: String, CaseIterable, Identifiable {
+    case oneMonth
+    case sixMonths
+    case oneYear
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .oneMonth:
+            return "1ヶ月"
+        case .sixMonths:
+            return "半年"
+        case .oneYear:
+            return "1年"
+        }
+    }
+
+    var bucketLabel: String {
+        switch self {
+        case .oneMonth:
+            return "日ごとの記録"
+        case .sixMonths, .oneYear:
+            return "週ごとの記録"
+        }
+    }
+
+    func makeBuckets(from logs: [CheckLog]) -> [TrendBucket] {
+        switch self {
+        case .oneMonth:
+            return makeDailyBuckets(days: 30, logs: logs)
+        case .sixMonths:
+            return makeWeeklyBuckets(weeks: 26, logs: logs)
+        case .oneYear:
+            return makeWeeklyBuckets(weeks: 52, logs: logs)
+        }
+    }
+
+    private func makeDailyBuckets(days: Int, logs: [CheckLog]) -> [TrendBucket] {
         Date.recentDays(days).map { date in
-            let checks = store.checkLogs.filter { $0.timestamp.dayKey == date.dayKey }
-            let touching = checks.filter(\.teethTouching).count
-            let separated = checks.count - touching
-            return TrendDay(
-                dayKey: date.dayKey,
+            let dayLogs = logs.filter { $0.timestamp.dayKey == date.dayKey }
+            let touching = dayLogs.filter(\.teethTouching).count
+            return TrendBucket(
+                id: date.dayKey,
                 label: date.formatted(.dateTime.month().day()),
-                checkCount: checks.count,
-                separatedCount: separated,
+                separatedCount: dayLogs.count - touching,
+                touchingCount: touching
+            )
+        }
+    }
+
+    private func makeWeeklyBuckets(weeks: Int, logs: [CheckLog]) -> [TrendBucket] {
+        let calendar = Calendar.current
+        let startOfThisWeek = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? calendar.startOfDay(for: Date())
+
+        return (0..<weeks).compactMap { offset in
+            guard let start = calendar.date(byAdding: .weekOfYear, value: offset - weeks + 1, to: startOfThisWeek),
+                  let end = calendar.date(byAdding: .weekOfYear, value: 1, to: start) else {
+                return nil
+            }
+            let weekLogs = logs.filter { $0.timestamp >= start && $0.timestamp < end }
+            let touching = weekLogs.filter(\.teethTouching).count
+            return TrendBucket(
+                id: start.dayKey,
+                label: start.formatted(.dateTime.month().day()),
+                separatedCount: weekLogs.count - touching,
                 touchingCount: touching
             )
         }
     }
 }
 
-private struct TrendDay {
-    var dayKey: String
+private struct TrendBucket: Identifiable {
+    var id: String
     var label: String
-    var checkCount: Int
     var separatedCount: Int
     var touchingCount: Int
 
+    var totalCount: Int {
+        separatedCount + touchingCount
+    }
+
     var hasRecord: Bool {
-        checkCount > 0
-    }
-
-    var separatedRatio: Double {
-        guard checkCount > 0 else { return 0 }
-        return Double(separatedCount) / Double(checkCount)
-    }
-
-    var touchingRatio: Double {
-        guard checkCount > 0 else { return 0 }
-        return Double(touchingCount) / Double(checkCount)
+        totalCount > 0
     }
 }
 
-private struct DailyStackedBarRow: View {
-    var row: TrendDay
+private struct StackedBarChart: View {
+    var buckets: [TrendBucket]
+
+    private var maxCount: Int {
+        max(buckets.map(\.totalCount).max() ?? 0, 1)
+    }
+
+    private var barWidth: CGFloat {
+        buckets.count > 30 ? 10 : 16
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(row.label)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(row.hasRecord ? .primary : .secondary)
-                Spacer()
-                Text(row.hasRecord ? "合計 \(row.checkCount)回" : "記録なし")
-                    .font(.caption.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(row.hasRecord ? TrendPalette.main : .secondary)
-            }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .bottom, spacing: buckets.count > 30 ? 6 : 8) {
+                ForEach(buckets) { bucket in
+                    VStack(spacing: 8) {
+                        ZStack(alignment: .bottom) {
+                            Capsule()
+                                .fill(TrendPalette.progressBackground)
+                                .frame(width: barWidth, height: 150)
 
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(TrendPalette.progressBackground)
-
-                    if row.hasRecord {
-                        HStack(spacing: 0) {
-                            Rectangle()
-                                .fill(TrendPalette.separated)
-                                .frame(width: geometry.size.width * CGFloat(row.separatedRatio))
-                            Rectangle()
-                                .fill(TrendPalette.touching)
-                                .frame(width: geometry.size.width * CGFloat(row.touchingRatio))
+                            if bucket.hasRecord {
+                                VStack(spacing: 0) {
+                                    Rectangle()
+                                        .fill(TrendPalette.touching)
+                                        .frame(height: segmentHeight(bucket.touchingCount))
+                                    Rectangle()
+                                        .fill(TrendPalette.separated)
+                                        .frame(height: segmentHeight(bucket.separatedCount))
+                                }
+                                .frame(width: barWidth)
+                                .clipShape(Capsule())
+                            }
                         }
-                        .clipShape(Capsule())
+
+                        Text(bucket.label)
+                            .font(.caption2)
+                            .foregroundStyle(bucket.hasRecord ? .secondary : Color.secondary.opacity(0.45))
+                            .rotationEffect(.degrees(-45))
+                            .frame(width: 34, height: 26)
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(bucket.label)、離れていた \(bucket.separatedCount)回、触れていた \(bucket.touchingCount)回")
                 }
             }
-            .frame(height: 24)
+            .padding(.top, 8)
+            .padding(.horizontal, 2)
+        }
+    }
 
-            if row.hasRecord {
-                HStack(spacing: 12) {
-                    Text("離れていた \(row.separatedCount)回")
-                        .foregroundStyle(TrendPalette.separated)
-                    Text("触れていた \(row.touchingCount)回")
-                        .foregroundStyle(TrendPalette.touching)
-                }
-                .font(.caption.weight(.semibold).monospacedDigit())
-            } else {
-                Text("この日のチェックはありません")
-                    .font(.caption)
+    private func segmentHeight(_ count: Int) -> CGFloat {
+        guard count > 0 else { return 0 }
+        return max(4, 150 * CGFloat(count) / CGFloat(maxCount))
+    }
+}
+
+private struct SummaryPill: View {
+    var title: String
+    var count: Int
+    var percent: Int
+    var color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 9, height: 9)
+                Text(title)
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
+            Text("\(percent)%")
+                .font(.title3.bold().monospacedDigit())
+                .foregroundStyle(color)
+            Text("\(count)回")
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(color.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
