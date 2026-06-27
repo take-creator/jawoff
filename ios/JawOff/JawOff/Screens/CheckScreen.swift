@@ -8,99 +8,81 @@ struct CheckScreen: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppDesign.Spacing.stack) {
-                    ScreenHeader(
-                        title: "チェック",
-                        subtitle: "今の状態を1回だけ確認します。正解・不正解はありません。"
-                    )
+            VStack(spacing: 22) {
+                Spacer(minLength: 24)
 
-                    if let result {
-                        resultView(result)
-                    } else {
-                        questionView
-                    }
-                }
-                .padding(.horizontal, AppDesign.Spacing.screenHorizontal)
-                .padding(.top, 18)
-                .padding(.bottom, 60)
-            }
-            .background(AppDesign.Color.grouped)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("閉じる") {
-                        dismiss()
-                    }
-                    .foregroundStyle(AppDesign.Color.brandDeep)
+                if let result {
+                    resultView(result)
+                    Spacer(minLength: 24)
+                } else {
+                    questionView
+                    Spacer(minLength: 24)
                 }
             }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 104)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("チェック")
         }
     }
 
     private var questionView: some View {
-        VStack(spacing: AppDesign.Spacing.stack) {
-            AppCard {
-                VStack(alignment: .leading, spacing: 18) {
-                    SectionHeader(
-                        icon: "face.smiling",
-                        title: "今、上下の歯は触れていましたか？",
-                        subtitle: "直前の感覚で選んでください。迷ったら近い方で大丈夫です。"
-                    )
+        VStack(spacing: 24) {
+            Text("クイックチェック")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.teal)
 
-                    VStack(spacing: 12) {
-                        Button {
-                            save(teethTouching: true)
-                        } label: {
-                            Label("はい、触れていた", systemImage: "exclamationmark.circle.fill")
-                        }
-                        .buttonStyle(ChipButtonStyle(isSelected: true, tint: AppDesign.Color.warning))
+            Text("今、上下の歯は触れていましたか？")
+                .font(.largeTitle.bold())
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.72)
+                .lineLimit(3)
+                .frame(maxWidth: .infinity)
 
-                        Button {
-                            save(teethTouching: false)
-                        } label: {
-                            Label("いいえ、離れていた", systemImage: "checkmark.circle.fill")
-                        }
-                        .buttonStyle(ChipButtonStyle(isSelected: true, tint: AppDesign.Color.brand))
-                    }
+            VStack(spacing: 14) {
+                Button("はい、触れていた") {
+                    save(teethTouching: true)
                 }
-            }
+                .buttonStyle(PrimaryActionButtonStyle())
 
-            InfoCard(
-                icon: "wind",
-                title: "触れていたことに気づけたら十分です",
-                subtitle: "記録したあと、奥歯を離してゆっくり息を吐きます。"
-            )
+                Button("いいえ、離れていた") {
+                    save(teethTouching: false)
+                }
+                .buttonStyle(SecondaryActionButtonStyle())
+            }
+            .padding(.top, 8)
         }
+        .padding(.horizontal, 10)
     }
 
     private func resultView(_ result: QuickCheckResult) -> some View {
-        VStack(spacing: AppDesign.Spacing.stack) {
-            AppCard {
-                VStack(alignment: .leading, spacing: 18) {
-                    SectionHeader(
-                        icon: result.icon,
-                        title: result.title,
-                        subtitle: result.subtitle
-                    )
+        VStack(spacing: 18) {
+            Text(result.title)
+                .font(.title2.bold())
+                .foregroundStyle(.teal)
+                .multilineTextAlignment(.center)
 
-                    VStack(spacing: 12) {
-                        ForEach(result.messages, id: \.self) { message in
-                            ResultStepRow(message: message, tint: result.tint)
-                        }
-                    }
+            VStack(spacing: 10) {
+                ForEach(result.messages, id: \.self) { message in
+                    Text(message)
                 }
             }
+            .font(.body)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
 
             Button("ホームに戻る") {
-                withAnimation(.easeInOut(duration: 0.25)) {
+                withAnimation(.easeInOut) {
                     self.result = nil
                     selectedTab = .home
                     dismiss()
                 }
             }
             .buttonStyle(PrimaryActionButtonStyle())
+            .padding(.top, 12)
         }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .padding(.horizontal, 8)
     }
 
     private func save(teethTouching: Bool) {
@@ -114,29 +96,9 @@ struct CheckScreen: View {
             stress: nil
         )
         store.addCheckLog(log)
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+        withAnimation(.easeInOut) {
             result = QuickCheckResult(teethTouching: teethTouching)
         }
-    }
-}
-
-private struct ResultStepRow: View {
-    var message: String
-    var tint: Color
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.title3)
-                .foregroundStyle(tint)
-            Text(message)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.primary)
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .background(tint.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -147,31 +109,19 @@ private struct QuickCheckResult: Equatable {
         teethTouching ? "気づけました" : "離せていました"
     }
 
-    var subtitle: String {
-        teethTouching ? "ここで力を抜ければ十分です。短く整えましょう。" : "その調子です。離れている感覚を少しだけ覚えておきます。"
-    }
-
-    var icon: String {
-        teethTouching ? "hand.raised.fill" : "checkmark.circle.fill"
-    }
-
-    var tint: Color {
-        teethTouching ? AppDesign.Color.warning : AppDesign.Color.success
-    }
-
     var messages: [String] {
         if teethTouching {
             return [
-                "深呼吸を3回する",
-                "奥歯をそっと離す",
-                "舌を上顎に軽く置く",
+                "深呼吸3回",
+                "奥歯を離す",
+                "舌を上顎につける",
                 "肩と顎の力を抜く"
             ]
         }
 
         return [
-            "歯が離れている感覚を確認する",
-            "顎と肩の力を抜いたまま戻る"
+            "その調子です。",
+            "引き続き、歯を離せている感覚を大切にしましょう。"
         ]
     }
 }

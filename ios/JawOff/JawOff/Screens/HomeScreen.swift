@@ -6,79 +6,64 @@ struct HomeScreen: View {
     @Binding var isCheckPresented: Bool
 
     var body: some View {
-        ScreenContainer(
-            title: "ホーム",
-            subtitle: "気づく回数を増やして、歯が触れている時間を少しずつ減らします。"
-        ) {
-            heroCard
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    heroCard
 
-            TodayBalanceCard(
-                touchingCount: store.todayTouchingCount,
-                separatedCount: store.todaySeparatedCount
-            )
+                    TodayBalanceCard(
+                        touchingCount: store.todayTouchingCount,
+                        separatedCount: store.todaySeparatedCount
+                    )
 
-            if store.todayMorningLog == nil {
-                InfoCard(
-                    icon: "sun.max.fill",
-                    title: "朝ログが未記録です",
-                    subtitle: "起床時の噛み締め感を残すと、日中の記録と合わせて変化を見返しやすくなります。"
-                )
-
-                Button("朝ログをつける") {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        selectedTab = .morning
+                    if store.todayMorningLog == nil {
+                        AppCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("朝の症状ログが未記録です")
+                                    .font(.headline)
+                                Text("起床時の噛み締め感を残すと、変化を見返しやすくなります。")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Button("朝ログをつける") {
+                                    selectedTab = .morning
+                                }
+                                .buttonStyle(SecondaryActionButtonStyle())
+                            }
+                        }
                     }
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
-            }
 
-            quickTips
-            DisclaimerView()
+                    DisclaimerView()
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 120)
+            }
+            .background(Color(.systemGroupedBackground))
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 
     private var heroCard: some View {
         AppCard {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .top, spacing: 14) {
-                    IconBadge(systemName: "brain.head.profile", size: 48)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("気づくことが、変わる第一歩。")
-                            .font(.title2.weight(.bold))
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("通知が来たら、今の歯の状態をワンタップで確認します。")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
+            VStack(alignment: .leading, spacing: 14) {
+                Text("小さな確認を積み重ねる")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(HomePalette.main)
+                Text("「食いしばり」は気づくことが大切です")
+                    .font(.title2.bold())
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("通知が来たら、今の歯の状態をワンタップで記録します。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 Button("今チェックする") {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                        isCheckPresented = true
-                    }
+                    isCheckPresented = true
                 }
-                .buttonStyle(PrimaryActionButtonStyle())
+                .buttonStyle(HomePrimaryButtonStyle())
             }
         }
     }
 
-    private var quickTips: some View {
-        AppCard {
-            VStack(alignment: .leading, spacing: 16) {
-                SectionHeader(
-                    icon: "sparkles",
-                    title: "今日の使い方",
-                    subtitle: "記録は細かくなくて大丈夫です。気づいた瞬間に残すことを優先します。"
-                )
-
-                VStack(spacing: 12) {
-                    TipRow(icon: "bell.badge.fill", title: "通知で気づく", subtitle: "日中だけ、設定した間隔で確認します。")
-                    TipRow(icon: "checkmark.circle.fill", title: "歯を離す", subtitle: "触れていたら、奥歯を離して肩の力を抜きます。")
-                    TipRow(icon: "chart.line.uptrend.xyaxis", title: "振り返る", subtitle: "記録画面で、離れていた割合を見返します。")
-                }
-            }
-        }
-    }
 }
 
 private struct TodayBalanceCard: View {
@@ -99,31 +84,31 @@ private struct TodayBalanceCard: View {
 
     var body: some View {
         AppCard {
-            VStack(alignment: .leading, spacing: 20) {
-                SectionHeader(
-                    icon: "chart.pie.fill",
-                    title: "今日の歯の状態",
-                    subtitle: totalCount == 0 ? "まだ記録がありません。まずは1回チェックしてみましょう。" : "今日のセルフチェック \(totalCount)回"
+            VStack(alignment: .leading, spacing: 18) {
+                Text("今日の歯の状態")
+                    .font(.headline)
+
+                if totalCount == 0 {
+                    Text("まだ記録がありません")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                ProgressBarRow(
+                    title: "離れていた",
+                    count: separatedCount,
+                    ratio: separatedRatio,
+                    color: HomePalette.separated
                 )
 
-                VStack(spacing: 18) {
-                    ProgressBarRow(
-                        title: "離れていた",
-                        count: separatedCount,
-                        ratio: separatedRatio,
-                        color: AppDesign.Color.success
-                    )
-
-                    ProgressBarRow(
-                        title: "触れていた",
-                        count: touchingCount,
-                        ratio: touchingRatio,
-                        color: AppDesign.Color.warning
-                    )
-                }
+                ProgressBarRow(
+                    title: "触れていた",
+                    count: touchingCount,
+                    ratio: touchingRatio,
+                    color: HomePalette.touching
+                )
             }
         }
-        .cardSectionAnimation(totalCount)
     }
 
     private func ratio(for count: Int) -> Double {
@@ -143,56 +128,58 @@ private struct ProgressBarRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.primary)
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 11, height: 11)
+                    Text(title)
+                        .font(.title3.bold())
+                        .foregroundStyle(.primary)
+                }
 
                 Spacer()
 
                 Text(percentText)
-                    .font(.title3.weight(.bold).monospacedDigit())
+                    .font(.title3.bold().monospacedDigit())
                     .foregroundStyle(color)
             }
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(AppDesign.Color.track)
+                        .fill(HomePalette.progressBackground)
                     Capsule()
                         .fill(color)
                         .frame(width: geometry.size.width * CGFloat(ratio))
-                        .animation(.spring(response: 0.45, dampingFraction: 0.88), value: ratio)
                 }
             }
-            .frame(height: 16)
+            .frame(height: 22)
 
             Text("\(count)回")
-                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .font(.headline.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
     }
 }
 
-private struct TipRow: View {
-    var icon: String
-    var title: String
-    var subtitle: String
+private enum HomePalette {
+    static let main = Color(red: 24 / 255, green: 195 / 255, blue: 207 / 255)
+    static let separated = Color(red: 45 / 255, green: 190 / 255, blue: 127 / 255)
+    static let touching = Color(red: 244 / 255, green: 162 / 255, blue: 97 / 255)
+    static let progressBackground = Color(red: 232 / 255, green: 234 / 255, blue: 240 / 255)
+}
 
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(AppDesign.Color.brand)
-                .frame(width: 28, height: 28)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.subheadline.weight(.bold))
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
+private struct HomePrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(HomePalette.main)
+            .foregroundStyle(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
     }
 }
