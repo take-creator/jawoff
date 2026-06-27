@@ -15,7 +15,7 @@ struct RootView: View {
                 .tag(AppTab.morning)
 
             TrendsScreen()
-                .tabItem { Label("推移", systemImage: "chart.line.uptrend.xyaxis") }
+                .tabItem { Label("記録", systemImage: "chart.line.uptrend.xyaxis") }
                 .tag(AppTab.charts)
 
             SettingsScreen()

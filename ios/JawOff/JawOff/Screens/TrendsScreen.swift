@@ -16,7 +16,7 @@ struct TrendsScreen: View {
                         VStack(alignment: .leading, spacing: 18) {
                             HStack(alignment: .firstTextBaseline) {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("記録の推移")
+                                    Text("日別の記録")
                                         .font(.title3.bold())
                                     Text("日ごとの記録")
                                         .font(.caption.weight(.semibold))
@@ -49,7 +49,7 @@ struct TrendsScreen: View {
                 .padding(.bottom, 104)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("推移")
+            .navigationTitle("記録")
             .onAppear {
                 setInitialRangeIfNeeded()
             }
