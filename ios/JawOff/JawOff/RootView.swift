@@ -2,16 +2,13 @@ import SwiftUI
 
 struct RootView: View {
     @Binding var selectedTab: AppTab
+    @Binding var isCheckPresented: Bool
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            HomeScreen(selectedTab: $selectedTab)
+            HomeScreen(selectedTab: $selectedTab, isCheckPresented: $isCheckPresented)
                 .tabItem { Label("ホーム", systemImage: "house") }
                 .tag(AppTab.home)
-
-            CheckScreen(selectedTab: $selectedTab)
-                .tabItem { Label("チェック", systemImage: "checkmark.circle") }
-                .tag(AppTab.check)
 
             MorningLogScreen()
                 .tabItem { Label("朝ログ", systemImage: "sun.max") }
@@ -30,5 +27,8 @@ struct RootView: View {
                 .tag(AppTab.learn)
         }
         .tint(.teal)
+        .sheet(isPresented: $isCheckPresented) {
+            CheckScreen(selectedTab: $selectedTab)
+        }
     }
 }

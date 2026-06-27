@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeScreen: View {
     @EnvironmentObject private var store: AppStore
     @Binding var selectedTab: AppTab
+    @Binding var isCheckPresented: Bool
 
     var body: some View {
         NavigationStack {
@@ -55,7 +56,7 @@ struct HomeScreen: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Button("今チェックする") {
-                    selectedTab = .check
+                    isCheckPresented = true
                 }
                 .buttonStyle(HomePrimaryButtonStyle())
             }

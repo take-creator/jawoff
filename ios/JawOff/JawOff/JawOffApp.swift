@@ -5,14 +5,16 @@ struct JawOffApp: App {
     @StateObject private var store = AppStore()
     @StateObject private var notifications = NotificationManager()
     @State private var selectedTab: AppTab = .home
+    @State private var isCheckPresented = false
 
     var body: some Scene {
         WindowGroup {
-            RootView(selectedTab: $selectedTab)
+            RootView(selectedTab: $selectedTab, isCheckPresented: $isCheckPresented)
                 .environmentObject(store)
                 .environmentObject(notifications)
                 .onReceive(NotificationCenter.default.publisher(for: .jawOffReminderOpened)) { _ in
-                    selectedTab = .check
+                    selectedTab = .home
+                    isCheckPresented = true
                     store.addReminderLog()
                     if store.settings.notificationEnabled, store.settings.reminderFrequency == .random25to55 {
                         Task {
@@ -21,7 +23,8 @@ struct JawOffApp: App {
                     }
                 }
                 .onOpenURL { _ in
-                    selectedTab = .check
+                    selectedTab = .home
+                    isCheckPresented = true
                 }
                 .task {
                     await notifications.refreshAuthorizationStatus()
@@ -35,7 +38,6 @@ struct JawOffApp: App {
 
 enum AppTab: Hashable {
     case home
-    case check
     case morning
     case charts
     case settings

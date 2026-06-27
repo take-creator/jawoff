@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CheckScreen: View {
     @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
     @Binding var selectedTab: AppTab
     @State private var result: QuickCheckResult?
 
@@ -76,6 +77,7 @@ struct CheckScreen: View {
                 withAnimation(.easeInOut) {
                     self.result = nil
                     selectedTab = .home
+                    dismiss()
                 }
             }
             .buttonStyle(PrimaryActionButtonStyle())
