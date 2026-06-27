@@ -10,10 +10,10 @@ struct HomeScreen: View {
                 VStack(spacing: 16) {
                     heroCard
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        HomeCountCard(title: "触れていた", value: "\(store.todayTouchingCount)", caption: "食いしばりに気づけた回数")
-                        HomeCountCard(title: "離れていた", value: "\(store.todaySeparatedCount)", caption: "歯を離せていた回数")
-                    }
+                    TodayBalanceCard(
+                        touchingCount: store.todayTouchingCount,
+                        separatedCount: store.todaySeparatedCount
+                    )
 
                     if store.todayMorningLog == nil {
                         AppCard {
@@ -64,36 +64,98 @@ struct HomeScreen: View {
 
 }
 
-private struct HomeCountCard: View {
+private struct TodayBalanceCard: View {
+    var touchingCount: Int
+    var separatedCount: Int
+
+    private var totalCount: Int {
+        touchingCount + separatedCount
+    }
+
+    private var touchingRatio: Double {
+        ratio(for: touchingCount)
+    }
+
+    private var separatedRatio: Double {
+        ratio(for: separatedCount)
+    }
+
+    var body: some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("今日の歯の状態")
+                    .font(.headline)
+
+                if totalCount == 0 {
+                    Text("まだ記録がありません")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                ProgressBarRow(
+                    title: "離れていた",
+                    count: separatedCount,
+                    ratio: separatedRatio,
+                    color: .green
+                )
+
+                ProgressBarRow(
+                    title: "触れていた",
+                    count: touchingCount,
+                    ratio: touchingRatio,
+                    color: .red
+                )
+            }
+        }
+    }
+
+    private func ratio(for count: Int) -> Double {
+        guard totalCount > 0 else { return 0 }
+        return Double(count) / Double(totalCount)
+    }
+}
+
+private struct ProgressBarRow: View {
     var title: String
-    var value: String
-    var caption: String
+    var count: Int
+    var ratio: Double
+    var color: Color
+
+    private var percentText: String {
+        "\(Int((ratio * 100).rounded()))%"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.title3.bold())
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .padding(.horizontal, 4)
-                .background(Color.teal)
+            HStack(alignment: .firstTextBaseline) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 11, height: 11)
+                    Text(title)
+                        .font(.title3.bold())
+                }
 
-            Text(value)
-                .font(.system(size: 42, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
-                .monospacedDigit()
+                Spacer()
 
-            Text(caption)
-                .font(.caption.weight(.semibold))
+                Text(percentText)
+                    .font(.title3.bold().monospacedDigit())
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color(.systemGray5))
+                    Capsule()
+                        .fill(color)
+                        .frame(width: geometry.size.width * CGFloat(ratio))
+                }
+            }
+            .frame(height: 22)
+
+            Text("\(count)回")
+                .font(.headline.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .minimumScaleFactor(0.78)
         }
-        .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
-        .padding()
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: Color.black.opacity(0.04), radius: 14, x: 0, y: 8)
     }
 }
