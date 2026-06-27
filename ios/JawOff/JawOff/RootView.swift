@@ -26,7 +26,7 @@ struct RootView: View {
                 .tabItem { Label("学習", systemImage: "book") }
                 .tag(AppTab.learn)
         }
-        .tint(.teal)
+        .tint(AppDesign.Color.brand)
         .sheet(isPresented: $isCheckPresented) {
             CheckScreen(selectedTab: $selectedTab)
         }

@@ -6,129 +6,100 @@ struct SettingsScreen: View {
     @EnvironmentObject private var notifications: NotificationManager
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    AppCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("リマインダー")
-                                .font(.title2.bold())
-                            Text("通知文言は「歯、触れていませんか？」です。通知をタップしたら、今の歯の接触だけをすぐ記録できます。")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
+        ScreenContainer(
+            title: "設定",
+            subtitle: "日中の気づきを邪魔にならない頻度と時間帯に調整します。"
+        ) {
+            InfoCard(
+                icon: "bell.badge.fill",
+                title: "リマインダー",
+                subtitle: "通知文言は「歯、触れていませんか？」です。通知をタップしたら、今の歯の接触だけをすぐ記録できます。"
+            )
+
+            notificationStatusCard
+            frequencyCard
+            timeWindowCard
+            DisclaimerView()
+        }
+        .task {
+            await notifications.refreshAuthorizationStatus()
+        }
+    }
+
+    private var notificationStatusCard: some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 18) {
+                SectionHeader(
+                    icon: "bell.badge.fill",
+                    title: "通知状態",
+                    subtitle: statusText
+                )
+
+                if notifications.authorizationStatus != .authorized {
+                    Button("通知を許可する") {
+                        Task { await requestNotifications() }
                     }
-
-                    AppCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("通知状態")
-                                .font(.headline)
-                            Text(statusText)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(statusColor)
-
-                            if notifications.authorizationStatus != .authorized {
-                                Button("通知を許可する") {
-                                    Task { await requestNotifications() }
-                                }
-                                .buttonStyle(SecondaryActionButtonStyle())
-                            }
-
-                            Toggle("通知を使う", isOn: notificationToggle)
-                                .font(.headline)
-                                .disabled(notifications.authorizationStatus != .authorized)
-                        }
-                    }
-
-                    AppCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("通知頻度")
-                                .font(.headline)
-                            Text("指定した時間帯の中だけ通知します。ランダム通知は毎回25〜55分の間で次の通知を決めます。")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-
-                            VStack(spacing: 8) {
-                                ForEach(ReminderFrequency.allCases) { frequency in
-                                    Button {
-                                        store.settings.reminderFrequency = frequency
-                                        scheduleIfNeeded()
-                                    } label: {
-                                        HStack(spacing: 12) {
-                                            VStack(alignment: .leading, spacing: 3) {
-                                                Text(frequency.title)
-                                                    .font(.subheadline.weight(.semibold))
-                                                    .foregroundStyle(.primary)
-                                                Text(frequency.detail)
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                            Spacer()
-                                            if store.settings.reminderFrequency == frequency {
-                                                Image(systemName: "checkmark.circle.fill")
-                                                    .font(.title3)
-                                                    .foregroundStyle(.teal)
-                                            }
-                                        }
-                                        .padding(12)
-                                        .background(frequencyBackground(frequency))
-                                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                    }
-
-                    AppCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("通知する時間帯")
-                                .font(.headline)
-                            Text("この時間帯の外では通知しません。夜間に通知を鳴らしたくない場合は、朝から夜までの範囲にしてください。")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-
-                            VStack(spacing: 10) {
-                                HStack {
-                                    Text("開始")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    DatePicker(
-                                        "開始",
-                                        selection: reminderStartBinding,
-                                        displayedComponents: .hourAndMinute
-                                    )
-                                    .labelsHidden()
-                                    .datePickerStyle(.compact)
-                                }
-
-                                HStack {
-                                    Text("終了")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    DatePicker(
-                                        "終了",
-                                        selection: reminderEndBinding,
-                                        displayedComponents: .hourAndMinute
-                                    )
-                                    .labelsHidden()
-                                    .datePickerStyle(.compact)
-                                }
-                            }
-                        }
-                    }
-
-                    DisclaimerView()
+                    .buttonStyle(SecondaryActionButtonStyle())
                 }
-                .padding()
-                .padding(.bottom, 104)
+
+                Toggle(isOn: notificationToggle) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("通知を使う")
+                            .font(.headline.weight(.bold))
+                        Text(store.settings.notificationEnabled ? "ONになっています" : "OFFになっています")
+                            .font(.subheadline)
+                            .foregroundStyle(statusColor)
+                    }
+                }
+                .tint(AppDesign.Color.brand)
+                .disabled(notifications.authorizationStatus != .authorized)
+                .animation(.spring(response: 0.28, dampingFraction: 0.82), value: store.settings.notificationEnabled)
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("設定")
-            .task {
-                await notifications.refreshAuthorizationStatus()
+        }
+    }
+
+    private var frequencyCard: some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 16) {
+                SectionHeader(
+                    icon: "timer",
+                    title: "通知頻度",
+                    subtitle: "指定した時間帯の中だけ通知します。ランダム通知は毎回25〜55分の間で次の通知を決めます。"
+                )
+
+                VStack(spacing: 10) {
+                    ForEach(ReminderFrequency.allCases) { frequency in
+                        Button {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                                store.settings.reminderFrequency = frequency
+                            }
+                            scheduleIfNeeded()
+                        } label: {
+                            FrequencyRow(
+                                frequency: frequency,
+                                isSelected: store.settings.reminderFrequency == frequency
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private var timeWindowCard: some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 16) {
+                SectionHeader(
+                    icon: "clock.fill",
+                    title: "通知する時間帯",
+                    subtitle: "この時間帯の外では通知しません。夜間通知を避けたい場合は、朝から夜までの範囲にしてください。"
+                )
+
+                VStack(spacing: 12) {
+                    TimePickerRow(title: "開始", selection: reminderStartBinding)
+                    TimePickerRow(title: "終了", selection: reminderEndBinding)
+                }
             }
         }
     }
@@ -137,7 +108,9 @@ struct SettingsScreen: View {
         Binding(
             get: { store.settings.notificationEnabled },
             set: { enabled in
-                store.settings.notificationEnabled = enabled
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                    store.settings.notificationEnabled = enabled
+                }
                 Task {
                     if enabled {
                         await notifications.scheduleReminder(settings: store.settings)
@@ -172,20 +145,20 @@ struct SettingsScreen: View {
     private var statusText: String {
         switch notifications.authorizationStatus {
         case .authorized, .provisional, .ephemeral:
-            return "通知は許可されています"
+            return "通知は許可されています。必要に応じてON/OFFできます。"
         case .denied:
             return "通知がブロックされています。iPhoneの設定から変更できます。"
         case .notDetermined:
-            return "通知は未設定です"
+            return "通知は未設定です。使う場合は許可してください。"
         @unknown default:
-            return "通知状態を確認できません"
+            return "通知状態を確認できません。"
         }
     }
 
     private var statusColor: Color {
         switch notifications.authorizationStatus {
         case .authorized, .provisional, .ephemeral:
-            return .teal
+            return AppDesign.Color.brandDeep
         case .denied:
             return .red
         default:
@@ -215,8 +188,55 @@ struct SettingsScreen: View {
         let startOfDay = Calendar.current.startOfDay(for: Date())
         return Calendar.current.date(byAdding: .minute, value: minutes, to: startOfDay) ?? Date()
     }
+}
 
-    private func frequencyBackground(_ frequency: ReminderFrequency) -> Color {
-        store.settings.reminderFrequency == frequency ? Color.teal.opacity(0.14) : Color(.secondarySystemGroupedBackground)
+private struct FrequencyRow: View {
+    var frequency: ReminderFrequency
+    var isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            IconBadge(
+                systemName: isSelected ? "checkmark.circle.fill" : "circle",
+                tint: isSelected ? AppDesign.Color.brand : .secondary,
+                size: 34
+            )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(frequency.title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.primary)
+                Text(frequency.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(14)
+        .background(isSelected ? AppDesign.Color.brand.opacity(0.12) : AppDesign.Color.secondarySurface)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .animation(.spring(response: 0.28, dampingFraction: 0.84), value: isSelected)
+    }
+}
+
+private struct TimePickerRow: View {
+    var title: String
+    @Binding var selection: Date
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.secondary)
+            Spacer()
+            DatePicker(title, selection: $selection, displayedComponents: .hourAndMinute)
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .tint(AppDesign.Color.brand)
+        }
+        .padding(14)
+        .background(AppDesign.Color.secondarySurface)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }

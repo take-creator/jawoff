@@ -8,40 +8,37 @@ struct TrendsScreen: View {
     @State private var selectedRecordKind: RecordKind = .checks
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    recordKindTabs
-                    if selectedRecordKind.usesPeriod {
-                        periodSelector
-                    }
+        ScreenContainer(
+            title: "記録",
+            subtitle: "離れていた割合と朝ログを見返して、小さな改善を確認します。"
+        ) {
+            recordInsightGrid
+            recordKindTabs
 
-                    switch selectedRecordKind {
-                    case .checks:
-                        checkRecordsCard
-                    case .morning:
-                        morningRecordsCard
-                    case .photo:
-                        monthlyPhotoGuideCard
-                    }
-                }
-                .padding()
-                .padding(.bottom, 104)
+            if selectedRecordKind.usesPeriod {
+                periodSelector
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("記録")
-            .onAppear {
-                setInitialRangeIfNeeded()
+
+            switch selectedRecordKind {
+            case .checks:
+                checkRecordsCard
+            case .morning:
+                morningRecordsCard
+            case .photo:
+                monthlyPhotoGuideCard
             }
-            .onChange(of: startDate) { _, newValue in
-                if newValue > endDate {
-                    endDate = newValue
-                }
+        }
+        .onAppear {
+            setInitialRangeIfNeeded()
+        }
+        .onChange(of: startDate) { _, newValue in
+            if newValue > endDate {
+                endDate = newValue
             }
-            .onChange(of: endDate) { _, newValue in
-                if newValue < startDate {
-                    startDate = newValue
-                }
+        }
+        .onChange(of: endDate) { _, newValue in
+            if newValue < startDate {
+                startDate = newValue
             }
         }
     }
@@ -53,13 +50,51 @@ struct TrendsScreen: View {
             }
         }
         .pickerStyle(.segmented)
+        .tint(AppDesign.Color.brand)
+        .animation(.easeInOut(duration: 0.22), value: selectedRecordKind)
+    }
+
+    private var recordInsightGrid: some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            MetricCard(
+                icon: "chart.line.uptrend.xyaxis",
+                title: "改善率",
+                value: improvementText,
+                caption: "前7日比",
+                tint: improvementPoints >= 0 ? AppDesign.Color.brand : AppDesign.Color.warning
+            )
+            MetricCard(
+                icon: "calendar",
+                title: "今週",
+                value: "\(separatedRate(in: .weekOfYear) ?? 0)%",
+                caption: "離れていた割合",
+                tint: AppDesign.Color.success
+            )
+            MetricCard(
+                icon: "calendar",
+                title: "今月",
+                value: "\(separatedRate(in: .month) ?? 0)%",
+                caption: "離れていた割合",
+                tint: AppDesign.Color.brand
+            )
+            MetricCard(
+                icon: "flame.fill",
+                title: "連続記録",
+                value: "\(consecutiveRecordDays)日",
+                caption: "今日から連続",
+                tint: AppDesign.Color.warning
+            )
+        }
     }
 
     private var periodSelector: some View {
         AppCard {
             VStack(alignment: .leading, spacing: 14) {
-                Text("期間")
-                    .font(.headline)
+                SectionHeader(
+                    icon: "calendar",
+                    title: "期間",
+                    subtitle: "確認したい期間を選べます。"
+                )
 
                 VStack(spacing: 10) {
                     HStack {
@@ -116,6 +151,43 @@ struct TrendsScreen: View {
         totalSeparated + totalTouching
     }
 
+    private var improvementPoints: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard
+            let currentStart = calendar.date(byAdding: .day, value: -6, to: today),
+            let previousEnd = calendar.date(byAdding: .day, value: -7, to: today),
+            let previousStart = calendar.date(byAdding: .day, value: -13, to: today)
+        else {
+            return 0
+        }
+
+        let current = separatedRate(from: currentStart, through: today)
+        let previous = separatedRate(from: previousStart, through: previousEnd)
+        return (current ?? 0) - (previous ?? 0)
+    }
+
+    private var improvementText: String {
+        if store.checkLogs.isEmpty {
+            return "-"
+        }
+        return improvementPoints >= 0 ? "+\(improvementPoints)pt" : "\(improvementPoints)pt"
+    }
+
+    private var consecutiveRecordDays: Int {
+        let calendar = Calendar.current
+        var date = calendar.startOfDay(for: Date())
+        var count = 0
+
+        while store.checkLogs.contains(where: { $0.timestamp.dayKey == date.dayKey }) {
+            count += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: date) else { break }
+            date = previous
+        }
+
+        return count
+    }
+
     private var separatedPercent: Int {
         guard totalCount > 0 else { return 0 }
         return Int((Double(totalSeparated) / Double(totalCount) * 100).rounded())
@@ -135,8 +207,8 @@ struct TrendsScreen: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("日別の記録")
                             .font(.title3.bold())
-                        Text("歯の状態")
-                            .font(.caption.weight(.semibold))
+                        Text("離れていた割合が増えているかを見ます")
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -169,7 +241,7 @@ struct TrendsScreen: View {
                         Text("朝ログの記録")
                             .font(.title3.bold())
                         Text("起床時の噛み締め感")
-                            .font(.caption.weight(.semibold))
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -207,10 +279,10 @@ struct TrendsScreen: View {
 
                 Text("同じ照明・同じ距離・無表情で撮影します。")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(TrendPalette.main)
+                    .foregroundStyle(AppDesign.Color.brandDeep)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(TrendPalette.main.opacity(0.10))
+                    .background(AppDesign.Color.brand.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: 16))
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -219,7 +291,7 @@ struct TrendsScreen: View {
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color(.secondarySystemGroupedBackground))
+                            .background(AppDesign.Color.secondarySurface)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                 }
@@ -257,10 +329,10 @@ struct TrendsScreen: View {
 
             Text("今月は\(monthlyNoRate)%の日で朝の噛み締め感がありませんでした")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(TrendPalette.main)
+                .foregroundStyle(AppDesign.Color.brandDeep)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
-                .background(TrendPalette.main.opacity(0.10))
+                .background(AppDesign.Color.brand.opacity(0.10))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }
@@ -334,6 +406,25 @@ struct TrendsScreen: View {
             yesCount: logs.filter(\.morningClenchingDetected).count,
             noCount: logs.filter { !$0.morningClenchingDetected }.count
         )
+    }
+
+    private func separatedRate(in component: Calendar.Component) -> Int? {
+        let calendar = Calendar.current
+        guard let interval = calendar.dateInterval(of: component, for: Date()) else {
+            return nil
+        }
+        return separatedRate(from: interval.start, through: interval.end)
+    }
+
+    private func separatedRate(from start: Date, through end: Date) -> Int? {
+        let calendar = Calendar.current
+        let logs = store.checkLogs.filter { log in
+            let day = calendar.startOfDay(for: log.timestamp)
+            return day >= calendar.startOfDay(for: start) && day <= calendar.startOfDay(for: end)
+        }
+        guard !logs.isEmpty else { return nil }
+        let separated = logs.filter { !$0.teethTouching }.count
+        return Int((Double(separated) / Double(logs.count) * 100).rounded())
     }
 
     private func emptyText(_ text: String) -> some View {
@@ -598,8 +689,8 @@ private struct LegendItem: View {
 }
 
 private enum TrendPalette {
-    static let main = Color(red: 24 / 255, green: 195 / 255, blue: 207 / 255)
-    static let separated = Color(red: 45 / 255, green: 190 / 255, blue: 127 / 255)
-    static let touching = Color(red: 244 / 255, green: 162 / 255, blue: 97 / 255)
-    static let progressBackground = Color(red: 232 / 255, green: 234 / 255, blue: 240 / 255)
+    static let main = AppDesign.Color.brand
+    static let separated = AppDesign.Color.success
+    static let touching = AppDesign.Color.warning
+    static let progressBackground = AppDesign.Color.track
 }
